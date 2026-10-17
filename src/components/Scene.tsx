@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Character, { CAST, type Mood, type Who } from "./Character";
 import { OutcomeStamp, Button } from "./ui";
-import { money, ago } from "@/lib/format";
+import { money } from "@/lib/format";
+import TimeAgo from "./TimeAgo";
 import type { DecisionView } from "@/lib/state";
 
 // One decision, replayed as a short exchange between the cast.
@@ -89,6 +90,12 @@ export default function Scene({ d, onDecide, busy }: { d: DecisionView; onDecide
               {d.banker.redFlags.join(" ")}
             </div>
           )}
+          {d.banker.elsewhere?.length > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              <span className="font-semibold">Also noticed elsewhere on the page: </span>
+              {d.banker.elsewhere.join(" ")}
+            </p>
+          )}
           <Checks items={d.banker.checks} />
         </Bubble>
       )}
@@ -110,7 +117,7 @@ export default function Scene({ d, onDecide, busy }: { d: DecisionView; onDecide
           <div className="flex-1 text-sm">
             <div className="font-semibold">Your call.</div>
             <div className="text-muted">
-              The Vault&apos;s limits passed, but the Banker isn&apos;t convinced. Nothing is paid unless you say yes
+              {disagreement(d)} Nothing is paid unless you say yes
               {d.totalCents ? `, and then ${money(d.totalCents)} comes out of your PayPal hold` : ""}.
             </div>
           </div>
@@ -126,7 +133,7 @@ export default function Scene({ d, onDecide, busy }: { d: DecisionView; onDecide
       )}
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-        <span>{ago(d.at)}</span>
+        <span><TimeAgo at={d.at} /></span>
         {d.paypalCaptureId && <span>PayPal capture {d.paypalCaptureId}</span>}
         <span title={d.seal}>Sealed #{d.seq} · {d.seal.slice(0, 10)}…</span>
       </div>
@@ -134,10 +141,16 @@ export default function Scene({ d, onDecide, busy }: { d: DecisionView; onDecide
   );
 }
 
+function disagreement(d: DecisionView) {
+  if (d.banker?.redFlags.length) return "The Vault's limits passed, but the Banker found a red flag.";
+  if (d.scout.isMatch) return "The Vault's limits passed and Scout wants it, but the Banker isn't convinced.";
+  return "The Vault's limits passed and the Banker approves, but Scout doesn't think it matches.";
+}
+
 export function verdictLine(d: DecisionView) {
   switch (d.outcome) {
     case "SKIPPED":
-      return "Scout passed on it. No checks needed.";
+      return "Scout and the Banker both passed on it.";
     case "BLOCKED":
       return "The Vault refused. No money moved.";
     case "NEEDS_YOU":

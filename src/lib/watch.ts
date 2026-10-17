@@ -8,10 +8,9 @@ import { captureHold, releaseHold, PayPalError } from "./paypal";
 import { placeOrder } from "./stores";
 import { money } from "./format";
 
-// The watch loop. For each new offer that might fit:
-//   1. Scout reads the page and proposes (or skips).
-//   2. The Banker reviews the same offer blind, and the Vault runs its rules. Both at once.
-//   3. Vault says no -> blocked. Banker and Vault both say yes -> bought. They disagree -> you decide.
+// The watch loop. For each new offer that might fit, three independent checks:
+//   Scout (AI shopper), the Banker (AI reviewer, never sees Scout's answer) and the Vault (rules in code).
+//   Vault says no -> blocked. Scout and Banker both yes -> bought. Both no -> skipped. Otherwise -> you decide.
 
 const busy = new Set<string>();
 
@@ -75,75 +74,45 @@ async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; cr
   const base = { wants: m.wants, mustHave: checklist, quantity: m.quantity, maxTotalUsd: m.maxTotalCents / 100, offer: offerText(offer), pageText };
   const snapshot = JSON.stringify({ ...offer, priceCents: offer.priceCents, excerpt: pageText.slice(0, 4000) });
 
-  await note(m.id, `Scout is looking at ${offer.name}…`);
-  const scout = await scoutLook(base);
+  // All three judge every offer independently and at the same time. The Banker never sees Scout's answer.
+  await note(m.id, `Scout, the Banker and the Vault are looking at ${offer.name}…`);
+  const [scout, banker] = await Promise.all([scoutLook(base), bankerReview(base)]);
+  const quantity = scout.isMatch ? scout.quantity : m.quantity;
+  const vault = await runVault(m.owner, m, offer.id, quantity);
 
-  if (!scout.isMatch) {
-    await seal(m.id, {
-      offerId: offer.id,
-      offerLabel: offer.name,
-      snapshot,
-      scout: JSON.stringify(scout),
-      outcome: "SKIPPED",
-      reason: scout.line,
-      decidedBy: "agents",
-    });
-    await note(m.id, `Skipped ${offer.name}.`);
-    return;
-  }
-
-  await note(m.id, `The Banker and the Vault are checking ${offer.name}…`);
-  const [banker, vault] = await Promise.all([bankerReview(base), runVault(m.owner, m, offer.id, scout.quantity)]);
-
+  const scoutYes = scout.isMatch;
   const bankerYes = banker.verdict === "APPROVE" && banker.redFlags.length === 0;
-
-  if (!vault.pass) {
-    await seal(m.id, {
-      offerId: offer.id,
-      offerLabel: offer.name,
-      snapshot,
-      scout: JSON.stringify(scout),
-      banker: JSON.stringify(banker),
-      vault: JSON.stringify(vault),
-      outcome: "BLOCKED",
-      reason: vault.line,
-      totalCents: vault.totalCents,
-      decidedBy: "agents",
-    });
-    await note(m.id, `Blocked ${offer.name}. Still watching.`);
-    return;
-  }
-
-  if (!bankerYes) {
-    const reason = banker.redFlags[0] ?? banker.line;
-    await seal(m.id, {
-      offerId: offer.id,
-      offerLabel: offer.name,
-      snapshot,
-      scout: JSON.stringify(scout),
-      banker: JSON.stringify(banker),
-      vault: JSON.stringify(vault),
-      outcome: "NEEDS_YOU",
-      reason,
-      totalCents: vault.totalCents,
-    });
-    await prisma.mandate.update({ where: { id: m.id }, data: { status: "NEEDS_YOU", lastCheckedAt: new Date(), lastNote: "The checks disagree. Your call." } });
-    return;
-  }
-
-  const d = await seal(m.id, {
+  const record = {
     offerId: offer.id,
     offerLabel: offer.name,
     snapshot,
-    scout: JSON.stringify(scout),
+    scout: JSON.stringify({ ...scout, quantity }),
     banker: JSON.stringify(banker),
     vault: JSON.stringify(vault),
-    outcome: "BUYING",
-    reason: "Both checks said yes.",
     totalCents: vault.totalCents,
-    decidedBy: "agents",
-  });
-  await buy(m, d.id, offer.id, scout.quantity, vault, "BOUGHT");
+  };
+
+  // 1. The Vault's limits are final.
+  if (!vault.pass) {
+    await seal(m.id, { ...record, outcome: "BLOCKED", reason: vault.line, decidedBy: "agents" });
+    await note(m.id, `Blocked ${offer.name}. Still watching.`);
+    return;
+  }
+  // 2. Neither AI wants it: nothing to ask.
+  if (!scoutYes && !bankerYes && banker.redFlags.length === 0) {
+    await seal(m.id, { ...record, outcome: "SKIPPED", reason: scout.line, decidedBy: "agents" });
+    await note(m.id, `Passed on ${offer.name}. Still watching.`);
+    return;
+  }
+  // 3. Everyone agrees: buy.
+  if (scoutYes && bankerYes) {
+    const d = await seal(m.id, { ...record, outcome: "BUYING", reason: "Both checks said yes.", decidedBy: "agents" });
+    await buy(m, d.id, offer.id, quantity, vault, "BOUGHT");
+    return;
+  }
+  // 4. They disagree, or the Banker raised a red flag: the owner decides.
+  await seal(m.id, { ...record, outcome: "NEEDS_YOU", reason: banker.redFlags[0] ?? (scoutYes ? banker.line : scout.line) });
+  await prisma.mandate.update({ where: { id: m.id }, data: { status: "NEEDS_YOU", lastCheckedAt: new Date(), lastNote: "The checks disagree. Your call." } });
 }
 
 async function buy(m: Mandate, decisionId: string, offerId: string, quantity: number, vault: VaultResult, outcome: "BOUGHT" | "APPROVED") {

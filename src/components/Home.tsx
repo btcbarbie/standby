@@ -5,7 +5,8 @@ import Character, { CAST, type Mood, type Who } from "./Character";
 import { AppHeader, Card, StatusPill, OutcomeStamp } from "./ui";
 import StopAll from "./StopAll";
 import { usePoll } from "@/lib/usePoll";
-import { money, ago, shortDate } from "@/lib/format";
+import { money, shortDate } from "@/lib/format";
+import TimeAgo from "./TimeAgo";
 import type { AppState, WatchSummary } from "@/lib/state";
 
 function scoutMood(w: WatchSummary): Mood {
@@ -59,7 +60,7 @@ export default function Home({ initial }: { initial: AppState }) {
                 <div className="text-sm font-semibold" style={{ color: CAST[d.who].color }}>
                   {CAST[d.who].name}
                 </div>
-                <div className="truncate text-xs text-muted">{d.text}</div>
+                <div className="line-clamp-2 text-xs leading-snug text-muted">{d.text}</div>
               </div>
             </Card>
           ))}
@@ -108,7 +109,7 @@ function WatchRow({ w }: { w: WatchSummary }) {
             {w.itemName} · {w.store} · up to {money(w.maxTotalCents)}
           </div>
           <div className="mt-1 truncate text-xs text-muted">
-            {w.status === "WATCHING" && <>Checked {ago(w.lastCheckedAt)} · </>}
+            {w.status === "WATCHING" && <><TimeAgo at={w.lastCheckedAt} prefix="Checked " /> · </>}
             {w.lastNote ?? (w.status === "SETUP" ? "Approve the PayPal hold to start watching." : "")}
           </div>
         </div>

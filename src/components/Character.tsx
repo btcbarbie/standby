@@ -45,7 +45,7 @@ function Mouth({ mood, y = 70, dark = "#14181F" }: { mood: Mood; y?: number; dar
   if (mood === "happy") return <path d={`M38 ${y - 2} q12 12 24 0`} stroke={dark} strokeWidth="3.4" strokeLinecap="round" fill="none" />;
   if (mood === "alert") return <ellipse cx="50" cy={y} rx="4.5" ry="5.5" fill={dark} />;
   if (mood === "stern") return <line x1="41" y1={y} x2="59" y2={y} stroke={dark} strokeWidth="3.4" strokeLinecap="round" />;
-  if (mood === "thinking") return <path d={`M42 ${y} q6 -3 14 1`} stroke={dark} strokeWidth="3.2" strokeLinecap="round" fill="none" />;
+  if (mood === "thinking") return <path d={`M43 ${y} l8 0 q4 0 6 -2`} stroke={dark} strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />;
   return <path d={`M42 ${y - 1} q8 6 16 0`} stroke={dark} strokeWidth="3.2" strokeLinecap="round" fill="none" />;
 }
 

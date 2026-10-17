@@ -7,7 +7,8 @@ import Scene, { verdictLine } from "./Scene";
 import { AppHeader, Button, Card, OutcomeStamp, StatusPill } from "./ui";
 import StopAll from "./StopAll";
 import { usePoll } from "@/lib/usePoll";
-import { money, ago, shortDate } from "@/lib/format";
+import { money, shortDate } from "@/lib/format";
+import TimeAgo from "./TimeAgo";
 import type { AppState } from "@/lib/state";
 
 export default function WatchView({ id, initial }: { id: string; initial: AppState }) {
@@ -126,7 +127,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                           <span className="font-medium">{x.offerLabel}</span>
                           <span className="text-muted"> · {verdictLine(x)}</span>
                         </span>
-                        <span className="shrink-0 text-xs text-muted">{ago(x.at)}</span>
+                        <span className="shrink-0 text-xs text-muted"><TimeAgo at={x.at} /></span>
                       </button>
                       {openId === x.id && (
                         <div className="px-4 pb-5">
@@ -203,7 +204,7 @@ function LiveLine({ w, working, stopped }: { w: AppState["watches"][number]; wor
     <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm ring-1 ring-line">
       {w.status === "WATCHING" && !stopped && <span className={`h-2 w-2 shrink-0 rounded-full bg-brand ${working ? "pulse-dot" : ""}`} />}
       <span className="min-w-0 flex-1 truncate">{text}</span>
-      {w.status === "WATCHING" && <span className="shrink-0 text-xs text-muted">checked {ago(w.lastCheckedAt)}</span>}
+      {w.status === "WATCHING" && <span className="shrink-0 text-xs text-muted"><TimeAgo at={w.lastCheckedAt} prefix="checked " /></span>}
     </div>
   );
 }
