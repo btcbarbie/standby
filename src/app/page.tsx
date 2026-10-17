@@ -1,0 +1,189 @@
+import Link from "next/link";
+import Character, { CAST, type Mood, type Who } from "@/components/Character";
+import { Logo } from "@/components/ui";
+
+const SAMPLE: { who: Who; mood: Mood; line: string }[] = [
+  { who: "scout", mood: "happy", line: "Section 106, Row E just dropped to $32. Left wing, one ticket. This is the one." },
+  { who: "banker", mood: "calm", line: "Checked the page myself. Left wing, $38 with the fee, one seat. Approved." },
+  { who: "vault", mood: "happy", line: "$38 total, quantity 1, inside your $40 hold and today's limit. Open." },
+];
+
+const NEVER = [
+  "Spend more than the hold you approved in PayPal",
+  "Buy anything other than the exact item you pointed at",
+  "Buy more than you asked for, or buy twice",
+  "Follow instructions hidden in a web page",
+  "Hold your PayPal login or card details",
+];
+
+export default function Landing() {
+  return (
+    <div className="min-h-screen bg-white">
+      <header className="border-b border-line">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+          <Logo />
+          <nav className="flex items-center gap-2 sm:gap-5">
+            <a href="#how" className="hidden text-sm font-medium text-muted hover:text-ink sm:block">
+              How it works
+            </a>
+            <a href="#safety" className="hidden text-sm font-medium text-muted hover:text-ink sm:block">
+              Safety
+            </a>
+            <Link href="/start?next=/app" className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-black">
+              Try the demo
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <main>
+        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-12 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
+          <div>
+            <p className="inline-flex items-center gap-2 rounded-full bg-scout-soft px-3 py-1 text-xs font-semibold text-[#9a5d00]">
+              <span className="h-1.5 w-1.5 rounded-full bg-scout" /> AI that buys for you, with a second opinion
+            </p>
+            <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[56px]">
+              Say exactly what you want.
+              <br />
+              <span className="text-muted">It waits.</span> Two checks decide.
+            </h1>
+            <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
+              Standby watches a page while you&apos;re busy and buys the moment it matches your words: the ticket under $40, the dress back in your size.
+              It pays only when an independent AI reviewer and hard spending limits both say yes. Anything in between waits for you.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/start?next=/app" className="rounded-xl bg-ink px-5 py-3 text-sm font-semibold text-white hover:bg-black">
+                Try the demo
+              </Link>
+              <a href="#how" className="rounded-xl border border-line px-5 py-3 text-sm font-semibold hover:border-ink">
+                How it works
+              </a>
+            </div>
+            <p className="mt-4 text-xs text-muted">Runs on the PayPal sandbox with test money.</p>
+          </div>
+
+          <div className="rounded-3xl border border-line bg-bg p-5 shadow-[0_20px_60px_-30px_rgba(14,21,37,0.35)] sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold">1 left-wing ticket under $40</div>
+                <div className="text-xs text-muted">Nova Adé · Harbour Arena · Tixora</div>
+              </div>
+              <span className="rounded-full bg-good-soft px-2.5 py-1 text-xs font-semibold text-good">Bought</span>
+            </div>
+            <div className="mt-5 space-y-4">
+              {SAMPLE.map((s) => (
+                <div key={s.who} className="flex gap-3">
+                  <Character who={s.who} mood={s.mood} size={44} className="shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold" style={{ color: CAST[s.who].color }}>
+                      {CAST[s.who].name}
+                    </div>
+                    <div className="mt-1 rounded-2xl rounded-tl-md px-3.5 py-2.5 text-[15px] leading-snug" style={{ background: CAST[s.who].soft }}>
+                      {s.line}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex items-center gap-3 border-t border-line pt-4 text-sm">
+              <span className="rounded-lg bg-good-soft px-3 py-1.5 font-semibold text-good">✓ Bought</span>
+              <span className="text-muted">$38 taken from a $40 PayPal hold. $2 released.</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-y border-line bg-bg">
+          <div className="mx-auto max-w-6xl px-4 py-16">
+            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Meet the team on your account</h2>
+            <p className="mt-2 max-w-2xl text-muted">
+              Each one is a separate part of the system with one job. No single AI can spend your money on its own say-so.
+            </p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {(["scout", "banker", "vault", "you"] as Who[]).map((who) => (
+                <div key={who} className="rounded-2xl border border-line bg-white p-5">
+                  <Character who={who} mood={who === "scout" ? "happy" : "calm"} size={72} />
+                  <div className="mt-4 text-lg font-semibold" style={{ color: CAST[who].color }}>
+                    {CAST[who].name}
+                  </div>
+                  <p className="mt-1 text-sm text-muted">{CAST[who].role}.</p>
+                  <p className="mt-3 text-xs font-medium text-ink/70">
+                    {
+                      {
+                        scout: "An AI. Reads the page, proposes a purchase. Can't pay.",
+                        banker: "A second AI. Reviews blind, flags tricks. Can't pay.",
+                        vault: "Not an AI. Plain rules: item, seller, price, quantity, speed.",
+                        you: "Approve the PayPal hold once. Break any tie.",
+                      }[who]
+                    }
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="how" className="mx-auto max-w-6xl px-4 py-16">
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">How it works</h2>
+          <ol className="mt-8 grid gap-4 lg:grid-cols-3">
+            {[
+              ["Point and say", "Paste the link to the exact item or event. Say what you want in plain words: one ticket, left wing, under $40 with fees. Standby turns it into a checklist you confirm."],
+              ["Approve one PayPal hold", "PayPal holds the most you'll spend. Nothing is taken. If nothing matches before your deadline, the hold is released."],
+              ["Two yeses, or it waits", "When something turns up, Scout proposes it. The Banker checks it blind and the Vault runs its limits. Both yes: it's bought. A disagreement comes to you."],
+            ].map(([t, b], i) => (
+              <li key={t} className="rounded-2xl border border-line p-6">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-ink text-sm font-semibold text-white">{i + 1}</span>
+                <h3 className="mt-4 font-semibold">{t}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{b}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section id="safety" className="bg-ink text-white">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-2">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">What Standby can never do</h2>
+              <p className="mt-3 max-w-md text-white/70">
+                These are enforced in code by the Vault, not left to the AI&apos;s judgement. The AIs check meaning. The code checks numbers.
+              </p>
+              <div className="mt-6 flex items-center gap-3">
+                <Character who="vault" mood="stern" size={64} />
+                <p className="text-sm text-white/70">“I don&apos;t read web pages. I can&apos;t be talked into anything.”</p>
+              </div>
+            </div>
+            <ul className="space-y-3">
+              {NEVER.map((n) => (
+                <li key={n} className="flex items-start gap-3 rounded-xl bg-white/5 px-4 py-3">
+                  <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-bad text-xs font-bold">✕</span>
+                  <span>{n}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 py-16">
+          <div className="grid gap-8 rounded-3xl border border-line p-8 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight">Built to live inside your wallet</h2>
+              <p className="mt-2 max-w-2xl text-muted">
+                Standby is designed as a feature for a wallet or banking app, next to your balance and payments. This demo runs on the PayPal sandbox and two practice
+                stores, so you can watch every decision happen.
+              </p>
+            </div>
+            <Link href="/start?next=/app" className="justify-self-start rounded-xl bg-ink px-5 py-3 text-sm font-semibold text-white hover:bg-black">
+              Try the demo
+            </Link>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-line">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-muted">
+          <Logo small />
+          <span>Hackathon demo · PayPal sandbox · test money only</span>
+        </div>
+      </footer>
+    </div>
+  );
+}

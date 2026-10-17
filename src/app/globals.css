@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/* Standby: quiet fintech surfaces. Colour is reserved for the cast and for outcomes. */
+:root {
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --ink: #0e1525;
+  --muted: #5a6478;
+  --line: #e4e7ec;
+  --brand: #1f4fd8;
+  --brand-soft: #e1e9fd;
+  --scout: #e8930c;
+  --scout-soft: #fdf1dc;
+  --banker: #0f7b5f;
+  --banker-soft: #ddf2ea;
+  --vault: #4b5565;
+  --vault-soft: #e8eaee;
+  --good: #067647;
+  --good-soft: #dcfae6;
+  --warn: #b54708;
+  --warn-soft: #fef0c7;
+  --bad: #b42318;
+  --bad-soft: #fee4e2;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-scout: var(--scout);
+  --color-scout-soft: var(--scout-soft);
+  --color-banker: var(--banker);
+  --color-banker-soft: var(--banker-soft);
+  --color-vault: var(--vault);
+  --color-vault-soft: var(--vault-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --font-sans: var(--nf-sans), system-ui, sans-serif;
+  --font-display: var(--nf-display), Georgia, serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes standby-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pulse-dot {
+  animation: standby-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes standby-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: standby-rise 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot, .rise { animation: none; }
+}

@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Money is stored as integer cents (USD).
+// Every visitor gets their own copy of the demo stores, so judges never see each other's changes.
+
+// ---------- The person whose money it is ----------
+
+model Owner {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  // "Stop all": no agent may buy anything while this is on.
+  stopped   Boolean  @default(false)
+
+  mandates Mandate[]
+  listings Listing[]
+}
+
+// A standing order: "buy this exact thing when it matches my words".
+model Mandate {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  ownerId   String
+  owner     Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // What the owner typed, word for word.
+  wants        String
+  // The AI's short name for it, e.g. "1 left-wing ticket under $40".
+  title        String
+  // The checklist the owner confirmed (JSON array of strings).
+  mustHave     String
+  // Locked from the page's own product data, never from the AI.
+  listingUrl   String
+  listingId    String
+  itemName     String
+  sellerName   String?  // null = any seller of this exact item
+  kind         String   // TICKET | DRESS
+  quantity     Int      @default(1)
+  maxTotalCents Int
+  expiresAt    DateTime
+
+  // SETUP (waiting for PayPal) | WATCHING | PAUSED | NEEDS_YOU | BOUGHT | ENDED
+  status       String   @default("SETUP")
+  lastCheckedAt DateTime?
+  lastNote     String?
+
+  // PayPal: a hold for the most this mandate may spend, taken later only if the checks pass.
+  paypalOrderId         String?
+  paypalAuthorizationId String?
+  heldCents             Int?
+  holdExpiresAt         DateTime?
+
+  decisions Decision[]
+
+  @@index([status])
+}
+
+// One candidate looked at by the agents. Sealed in order, so changes are detectable.
+model Decision {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  seq       Int
+  mandateId String
+  mandate   Mandate  @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+
+  offerId     String
+  offerLabel  String
+  // What the page said at that moment (JSON: structured data + visible text excerpt).
+  snapshot    String
+  scout       String   // JSON: Scout's proposal
+  banker      String?  // JSON: Banker's blind review
+  vault       String?  // JSON: list of rule checks
+  // SKIPPED | BLOCKED | NEEDS_YOU | BOUGHT | APPROVED | DENIED | FAILED
+  outcome     String
+  reason      String
+  totalCents  Int?
+  paypalCaptureId String?
+  decidedBy   String?  // "agents" | "you"
+  decidedAt   DateTime?
+
+  prevSeal String
+  seal     String
+
+  @@index([mandateId, seq])
+}
+
+// ---------- Demo stores (stand-ins for real websites) ----------
+
+model Listing {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  ownerId   String
+  owner     Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  store     String   // tixly | loom
+  kind      String   // TICKET | DRESS
+  slug      String
+  name      String
+  subtitle  String
+  details   String   // JSON with store-specific details (venue, date, map legend, fabric...)
+
+  offers Offer[]
+}
+
+model Offer {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  // Public reference shown on the page, e.g. "TX-48213".
+  ref        String
+  label      String   // "Section 104 · Row F" or "Green / 8"
+  attrs      String   // JSON: {"section":"104","row":"F"} or {"color":"Green","size":"8"}
+  priceCents Int
+  feeCents   Int      @default(0)
+  stock      Int      @default(1)
+  seller     String
+  // The seller's own description. Demo "trick" listings hide instructions for AI agents here.
+  note       String   @default("")
+  hiddenNote String   @default("")
+
+  @@index([listingId])
+}
+
+model StoreOrder {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  offerId    String
+  quantity   Int
+  totalCents Int
+  mandateId  String
+  paypalCaptureId String
+}
