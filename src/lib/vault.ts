@@ -47,6 +47,13 @@ export async function runVault(owner: Owner, m: Mandate, offerId: string, quanti
       m.sellerName ? q.seller === m.sellerName : true,
       m.sellerName ? (q.seller === m.sellerName ? `Sold by ${q.seller}.` : `Sold by ${q.seller}, not ${m.sellerName}.`) : `Any seller allowed (${q.seller}).`,
     );
+    if (m.options) {
+      // The owner ticked exact options at setup. Code compares names; no AI judgement involved.
+      const picked: string[] = JSON.parse(m.options);
+      const name = pageOffer?.name ?? "";
+      const ok = picked.includes(name);
+      add("option", "The option you picked", ok, ok ? `${name}.` : `${name || "This offer"} isn't one you ticked (${picked.join(", ")}).`);
+    }
     add("qty", "Quantity", quantity === m.quantity, quantity === m.quantity ? `${quantity}, as asked.` : `${quantity} asked for, you said ${m.quantity}.`);
     add("stock", "Still available", q.stock >= quantity, q.stock >= quantity ? "In stock." : "Sold out.");
     add(

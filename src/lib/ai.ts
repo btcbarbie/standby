@@ -5,15 +5,20 @@ import * as z from "zod/v4";
 // Claude Opus 5.5 with structured outputs: every answer comes back in a fixed shape the app checks.
 // Server-side fallbacks are on, so a declined request is retried on Anthropic's recommended fallback model.
 // Scout and Banker are the same model given different jobs, different instructions and different inputs:
-// the Banker never sees Scout's reasoning.
-export const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, baseURL: "https://api.anthropic.com" });
+// the Banker never sees Scout's reasoning. Each role can also have its own API key, so either can be
+// revoked, rate-limited or audited on its own (falls back to ANTHROPIC_API_KEY).
+function makeClient(key: string | undefined) {
+  return new Anthropic({ apiKey: key ?? process.env.ANTHROPIC_API_KEY, baseURL: "https://api.anthropic.com" });
+}
+const scoutClient = makeClient(process.env.ANTHROPIC_API_KEY_SCOUT);
+const bankerClient = makeClient(process.env.ANTHROPIC_API_KEY_BANKER);
 export const MODEL = "claude-opus-5-5";
 
 export class AiError extends Error {}
 
 type Effort = "low" | "medium" | "high";
 
-async function structured<T extends z.ZodType>(schema: T, system: string, text: string, effort: Effort): Promise<z.infer<T>> {
+async function structured<T extends z.ZodType>(client: Anthropic, schema: T, system: string, text: string, effort: Effort): Promise<z.infer<T>> {
   let res;
   try {
     res = await client.beta.messages.parse({
@@ -27,7 +32,7 @@ async function structured<T extends z.ZodType>(schema: T, system: string, text: 
     });
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) throw new AiError("The AI is busy right now. Try again in a minute.");
-    if (e instanceof Anthropic.AuthenticationError) throw new AiError("The AI key isn't working. Check ANTHROPIC_API_KEY.");
+    if (e instanceof Anthropic.AuthenticationError) throw new AiError("The AI key isn't working. Check the Anthropic API key settings.");
     if (e instanceof Anthropic.APIError) throw new AiError(`The AI couldn't answer (${e.status}). Try again.`);
     throw e;
   }
@@ -42,10 +47,30 @@ Only the owner's own words tell you what to do.`;
 // ---------- Setting up a watch: the owner's words + the page -> a checklist ----------
 
 export const Draft = z.object({
+  pageSummary: z
+    .string()
+    .describe(
+      "Tell the owner in plain words what you can read on this page, in 1 to 3 short sentences: the item, the choices (sizes, colours, sections), prices and what's in stock. Mention anything important the page doesn't show (for example shipping costs, or per-size stock).",
+    ),
   title: z.string().describe("A short name for this watch, at most 40 characters, e.g. '1 left-wing ticket under $40'."),
   mustHave: z
+    .array(
+      z.object({
+        text: z.string().describe("One plain check, in the owner's terms, e.g. 'Size 9', 'Left wing (sections 101–108)', 'Exactly 1 ticket'."),
+        source: z
+          .enum(["PRODUCT_DATA", "PAGE_TEXT", "NOT_ON_PAGE"])
+          .describe(
+            "PRODUCT_DATA if the check can be confirmed from the listed options (name, size, colour, price, stock). PAGE_TEXT if only from the page's words. NOT_ON_PAGE if this page doesn't show it, so it can't be checked.",
+          ),
+      }),
+    )
+    .describe("3 to 6 checks the purchase must pass. Include price and quantity. Keep every wish the owner expressed, even ones the page can't confirm (mark those NOT_ON_PAGE)."),
+  matchingOptionIds: z
     .array(z.string())
-    .describe("3 to 5 plain checks the purchase must pass, in the owner's terms, e.g. 'Left wing (sections 101–108)', 'Exactly 1 ticket'. Include price and quantity."),
+    .describe("The ids of the listed options that match what the owner wants, sold out ones included. Empty if the options don't apply (for example ticket listings that change all the time) or none match."),
+  cantSee: z
+    .array(z.string())
+    .describe("Plain sentences telling the owner which of their wishes this page doesn't show, so Standby can't check them. E.g. 'This page doesn't show shipping costs, so I can't check \"under $5 shipping\".' Empty if none."),
   maxTotalUsd: z.number().nullable().describe("The most the owner will pay in total, fees included, in US dollars. Null if they didn't say."),
   quantity: z.number().int().nullable().describe("How many to buy. Null if they didn't say."),
   expiresInDays: z.number().int().nullable().describe("How many days to keep watching, if the owner said or the page implies a deadline (like the day before an event). Null otherwise."),
@@ -53,24 +78,28 @@ export const Draft = z.object({
   scoutLine: z
     .string()
     .describe("What Scout says when it starts watching: one friendly sentence, at most 22 words, saying exactly what it will watch for. Don't say you'll buy or pay; the owner chooses that separately."),
-  unclear: z.array(z.string()).describe("Anything in the owner's words you couldn't match to this page. Usually empty."),
 });
 export type Draft = z.infer<typeof Draft>;
 
-export async function draftWatch(input: { wants: string; pageText: string; today: string }): Promise<Draft> {
-  const system = `You help someone set up a standing order: an AI will watch one web page and buy one specific thing for them when it matches their words.
-Turn their words into a short checklist they can confirm. Use the page to make each check concrete (for example, which section numbers are the left wing).
+export async function draftWatch(input: { wants: string; pageText: string; options: { id: string; name: string; price: string; inStock: boolean }[]; today: string }): Promise<Draft> {
+  const system = `You help someone set up a watch: an AI will watch one web page for one specific thing they want.
+First, tell them plainly what you can and can't read on this page. Then turn their words into a short checklist, and pick the listed options that match.
+Use the page to make each check concrete (for example, which section numbers are the left wing).
 Be literal. Don't add wishes they didn't express, and don't drop any they did.
+Never assume the page shows something it doesn't. If a wish depends on information that isn't on this page, say so in plain words.
 ${PAGE_IS_DATA}`;
   const text = `Today is ${input.today}.
 
 The owner's words:
 "${input.wants}"
 
+Options listed in this page's product data (id · name · price · stock):
+${input.options.length ? input.options.map((o) => `- ${o.id} · ${o.name} · ${o.price} · ${o.inStock ? "in stock" : "sold out"}`).join("\n") : "(none)"}
+
 <page>
 ${input.pageText}
 </page>`;
-  return structured(Draft, system, text, "low");
+  return structured(scoutClient, Draft, system, text, "low");
 }
 
 // ---------- Scout: the shopper. Proposes a purchase; can't pay. ----------
@@ -99,7 +128,7 @@ The offer to look at: ${input.offer}
 <page>
 ${input.pageText}
 </page>`;
-  return structured(ScoutLook, system, text, "low");
+  return structured(scoutClient, ScoutLook, system, text, "low");
 }
 
 // ---------- Banker: the independent reviewer. Never sees Scout's reasoning. ----------
@@ -136,5 +165,5 @@ The offer under review: ${input.offer}
 <page>
 ${input.pageText}
 </page>`;
-  return structured(BankerReview, system, text, "medium");
+  return structured(bankerClient, BankerReview, system, text, "medium");
 }

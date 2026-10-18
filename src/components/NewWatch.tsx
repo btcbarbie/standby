@@ -17,7 +17,20 @@ type Item = {
   acceptsAiBuyers: boolean;
   options: number;
   inStock: number;
+  pickable: boolean;
+  choices: { id: string; name: string; priceCents: number; inStock: boolean; seller: string }[];
+  priceRange: [number, number] | null;
 };
+
+type Check = Draft["mustHave"][number];
+
+const SOURCE: Record<Check["source"], { label: string; cls: string; icon: string }> = {
+  PRODUCT_DATA: { label: "Checked in the store's product data", cls: "bg-good text-white", icon: "✓" },
+  PAGE_TEXT: { label: "Read from the page's words", cls: "bg-brand text-white", icon: "✓" },
+  NOT_ON_PAGE: { label: "Not on this page, so it can't be checked", cls: "bg-warn text-white", icon: "!" },
+};
+
+const usd = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;
 
 const PRESETS = {
   ticket: { wants: "One ticket for the Nova Adé show, left wing only, under $40 including fees. Just one ticket, never more." },
@@ -64,7 +77,8 @@ export default function NewWatch({
 
   // Editable checklist
   const [title, setTitle] = useState("");
-  const [mustHave, setMustHave] = useState<string[]>([]);
+  const [mustHave, setMustHave] = useState<Check[]>([]);
+  const [picked, setPicked] = useState<string[]>([]);
   const [maxTotal, setMaxTotal] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [days, setDays] = useState("14");
@@ -95,6 +109,7 @@ export default function NewWatch({
       setDraft(d);
       setTitle(d.title);
       setMustHave(d.mustHave);
+      setPicked(json.item.pickable ? d.matchingOptionIds.filter((id: string) => json.item.choices.some((c: { id: string }) => c.id === id)) : []);
       setMaxTotal(d.maxTotalUsd ? String(d.maxTotalUsd) : "");
       setQuantity(String(d.quantity ?? 1));
       setDays(String(Math.min(29, Math.max(1, d.expiresInDays ?? 14))));
@@ -114,7 +129,7 @@ export default function NewWatch({
       const res = await fetch("/api/watches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: item!.url, wants, title, mustHave, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode }),
+        body: JSON.stringify({ url: item!.url, wants, title, mustHave: mustHave.map((m) => m.text), optionIds: picked, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
@@ -194,10 +209,71 @@ export default function NewWatch({
           <Card className="rise mt-4 p-5">
             <div className="flex gap-3">
               <Character who="scout" mood="happy" size={48} className="shrink-0" />
-              <div className="rounded-2xl rounded-tl-md bg-scout-soft px-3.5 py-2.5 text-[15px]">{draft.scoutLine}</div>
+              <div className="space-y-2">
+                <div className="rounded-2xl rounded-tl-md bg-scout-soft px-3.5 py-2.5 text-[15px]">{draft.pageSummary}</div>
+                {draft.cantSee.map((c, i) => (
+                  <div key={i} className="rounded-2xl rounded-tl-md bg-warn-soft px-3.5 py-2.5 text-[15px] text-warn">
+                    {c}
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="mt-5 text-sm font-semibold">3. Check the order</div>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-bg px-2.5 py-1">
+                <span className="font-semibold">{item.options}</span> option{item.options === 1 ? "" : "s"} listed
+              </span>
+              <span className="rounded-full bg-bg px-2.5 py-1">
+                <span className="font-semibold">{item.inStock}</span> in stock now
+              </span>
+              {item.priceRange && (
+                <span className="rounded-full bg-bg px-2.5 py-1">
+                  {item.priceRange[0] === item.priceRange[1] ? usd(item.priceRange[0]) : `${usd(item.priceRange[0])}–${usd(item.priceRange[1])}`}
+                </span>
+              )}
+              <span className="rounded-full bg-bg px-2.5 py-1">{item.store}</span>
+            </div>
+
+            {item.pickable && item.choices.length > 0 && (
+              <div className="mt-5">
+                <div className="text-sm font-semibold">3. Tap what you want</div>
+                <p className="mt-0.5 text-xs text-muted">
+                  Scout ticked what matches your words. Change it if needed. Sold-out options are fine: Scout waits for a restock. The Vault will only ever accept what&apos;s ticked.
+                </p>
+                <ul className="mt-2 max-h-72 space-y-1.5 overflow-y-auto pr-1">
+                  {item.choices.map((c) => {
+                    const on = picked.includes(c.id);
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => setPicked(on ? picked.filter((p) => p !== c.id) : [...picked, c.id])}
+                          className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition ${on ? "border-ink bg-bg ring-1 ring-ink" : "border-line hover:border-ink"}`}
+                        >
+                          <span className={`grid h-4 w-4 shrink-0 place-items-center rounded border text-[10px] font-bold ${on ? "border-ink bg-ink text-white" : "border-line"}`}>{on ? "✓" : ""}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate">{c.name.startsWith(`${item.name} - `) ? c.name.slice(item.name.length + 3) : c.name}</span>
+                            {c.seller && c.seller !== item.store && c.seller !== item.storeSeller && item.isDemo && <span className="block text-xs text-muted">Sold by {c.seller}</span>}
+                          </span>
+                          <span className="tabular shrink-0 text-muted">{usd(c.priceCents)}</span>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${c.inStock ? "bg-good-soft text-good" : "bg-vault-soft text-vault"}`}>
+                            {c.inStock ? "In stock" : "Sold out"}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {picked.length === 0 && <p className="mt-2 text-xs text-warn">Nothing ticked: any option can match, and only the AIs judge which. Ticking makes it exact.</p>}
+              </div>
+            )}
+            {!item.pickable && (
+              <p className="mt-4 rounded-xl bg-bg px-3 py-2 text-xs text-muted">
+                Ticket listings come and go, so there&apos;s nothing to tick. Scout, the Banker and the Vault check every new listing against your words.
+              </p>
+            )}
+
+            <div className="mt-6 text-sm font-semibold">{item.pickable ? "4." : "3."} Check the order</div>
             <div className="mt-3 rounded-xl bg-bg p-3 text-sm">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted">Locked to this item</div>
               <div className="mt-1 font-medium">{item.name}</div>
@@ -227,18 +303,23 @@ export default function NewWatch({
             <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">It must be</div>
             <ul className="mt-1 space-y-1.5">
               {mustHave.map((m, i) => (
-                <li key={i} className="flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm">
-                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-good text-[10px] font-bold text-white">✓</span>
-                  <span className="flex-1">{m}</span>
+                <li key={i} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${m.source === "NOT_ON_PAGE" ? "border-warn/40 bg-warn-soft/40" : "border-line"}`}>
+                  <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold ${SOURCE[m.source].cls}`} title={SOURCE[m.source].label}>
+                    {SOURCE[m.source].icon}
+                  </span>
+                  <span className="flex-1">
+                    {m.text}
+                    <span className={`block text-xs ${m.source === "NOT_ON_PAGE" ? "text-warn" : "text-muted"}`}>
+                      {SOURCE[m.source].label}
+                      {m.source === "NOT_ON_PAGE" && ". Keep it and the checks will ask you, or remove it."}
+                    </span>
+                  </span>
                   <button aria-label="Remove" onClick={() => setMustHave(mustHave.filter((_, n) => n !== i))} className="text-muted hover:text-bad">
                     ✕
                   </button>
                 </li>
               ))}
             </ul>
-            {draft.unclear.length > 0 && (
-              <div className="mt-3 rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn">Not sure about: {draft.unclear.join(" ")}</div>
-            )}
 
             <div className="mt-4 grid grid-cols-3 gap-3">
               <Field label="Most in total ($)" value={maxTotal} onChange={setMaxTotal} />
@@ -246,7 +327,7 @@ export default function NewWatch({
               <Field label="Watch for (days)" value={days} onChange={setDays} />
             </div>
 
-            <div className="mt-6 text-sm font-semibold">4. When it matches</div>
+            <div className="mt-6 text-sm font-semibold">{item.pickable ? "5." : "4."} When it matches</div>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <ModeCard
                 selected={mode === "ALERT"}

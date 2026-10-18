@@ -28,7 +28,15 @@ export async function POST(req: NextRequest) {
       page = await readPage(real.toString(), agentHeaders(null));
     }
     rememberDraft(owner.id, page);
-    const draft = await draftWatch({ wants: String(wants), pageText: page.text, today: new Date().toISOString().slice(0, 10) });
+    // Sizes and colours are stable choices you can tick. Resale ticket listings come and go, so those aren't pickable.
+    const pickable = page.kind !== "TICKET";
+    const options = page.offers.map((o) => ({ id: o.id, name: o.name, priceCents: o.priceCents, inStock: o.inStock, seller: o.seller }));
+    const draft = await draftWatch({
+      wants: String(wants),
+      pageText: page.text,
+      options: pickable ? options.map((o) => ({ id: o.id, name: o.name, price: `$${(o.priceCents / 100).toFixed(2)}`, inStock: o.inStock })) : [],
+      today: new Date().toISOString().slice(0, 10),
+    });
     return NextResponse.json({
       draft,
       item: {
@@ -43,6 +51,11 @@ export async function POST(req: NextRequest) {
         acceptsAiBuyers: page.isDemo,
         options: page.offers.length,
         inStock: page.offers.filter((o) => o.inStock).length,
+        pickable,
+        choices: pickable ? options : [],
+        priceRange: page.offers.length
+          ? [Math.min(...page.offers.map((o) => o.priceCents)), Math.max(...page.offers.map((o) => o.priceCents))]
+          : null,
       },
     });
   } catch (e) {

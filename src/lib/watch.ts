@@ -84,13 +84,20 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
     const seen = await prisma.decision.findMany({ where: { mandateId: m.id }, select: { offerId: true, snapshot: true } });
     const seenKeys = new Set(seen.map((d) => `${d.offerId}:${JSON.parse(d.snapshot).priceCents}`));
 
+    // Options you didn't tick aren't even looked at (the Vault checks it again before anything happens).
+    const picked: string[] | null = m.options ? JSON.parse(m.options) : null;
     const candidates = page.offers
       // Seller is a Vault rule, not a filter, so the Vault can show why another seller's offer was refused.
       .filter((o) => o.inStock)
+      .filter((o) => !picked || picked.includes(o.name))
       .filter((o) => o.priceCents * m.quantity <= m.maxTotalCents)
       .filter((o) => !seenKeys.has(`${o.id}:${o.priceCents}`))
       .sort((a, b) => a.priceCents - b.priceCents);
 
+    if (candidates.length === 0 && picked && !page.offers.some((o) => picked.includes(o.name) && o.inStock)) {
+      await note(m.id, `${picked.length === 1 ? "Your pick is" : "Your picks are"} sold out right now. Watching for a restock.`);
+      return;
+    }
     if (candidates.length === 0) {
       await note(m.id, policy === "SLOW" ? `Nothing new under ${money(m.maxTotalCents)}. The store asked for one visit a minute.` : `Nothing new under ${money(m.maxTotalCents)}.`);
       return;

@@ -39,6 +39,13 @@ export async function POST(req: NextRequest) {
   }
 
   const sellerName = page.isDemo && page.storeName === "Wren" && !body.anySeller ? "Wren" : null;
+  // Ticked options are stored by name, so the same size from another seller still counts as the same option.
+  const picked = page.kind === "TICKET" || !Array.isArray(body.optionIds) || body.optionIds.length === 0
+    ? null
+    : [...new Set(page.offers.filter((o) => body.optionIds.includes(o.id)).map((o) => o.name))];
+  if (page.kind !== "TICKET" && Array.isArray(body.optionIds) && body.optionIds.length > 0 && (!picked || picked.length === 0)) {
+    return fail("The options you picked aren't on the page any more. Please draft again.");
+  }
   const mandate = await prisma.mandate.create({
     data: {
       ownerId: owner.id,
@@ -49,6 +56,7 @@ export async function POST(req: NextRequest) {
       listingId: page.listingId,
       itemName: page.name,
       sellerName,
+      options: picked ? JSON.stringify(picked) : null,
       kind: page.kind,
       quantity,
       maxTotalCents,
