@@ -36,8 +36,16 @@ export const STATUS: Record<string, { label: string; cls: string }> = {
   ENDED: { label: "Ended", cls: "bg-vault-soft text-vault" },
 };
 
-export function StatusPill({ status }: { status: string }) {
-  const s = STATUS[status] ?? STATUS.ENDED;
+const PAUSED_LABEL: Record<string, string> = {
+  YOU: "Paused",
+  DEADLINE: "Paused · time's up",
+  VISIT_LIMIT: "Paused · visit limit",
+  STORE_CLOSED: "Paused · store closed to AI",
+};
+
+export function StatusPill({ status, reason }: { status: string; reason?: string | null }) {
+  const base = STATUS[status] ?? STATUS.ENDED;
+  const s = status === "PAUSED" && reason ? { ...base, label: PAUSED_LABEL[reason] ?? base.label } : base;
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${s.cls}`}>
       {status === "WATCHING" && <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-brand" />}

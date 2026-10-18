@@ -13,6 +13,7 @@ const NEVER = [
   "Buy anything other than the exact item you pointed at",
   "Buy more than you asked for, or buy twice",
   "Follow instructions hidden in a web page",
+  "Wander to other pages or sites, or keep visiting after its time is up",
   "Hold your PayPal login or card details",
 ];
 
@@ -159,6 +160,32 @@ export default function Landing() {
                 </li>
               ))}
             </ul>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 pt-16">
+          <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-center">
+            <div>
+              <p className="text-sm font-semibold text-banker">Good for stores, too</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">An AI shopper a store can say yes to</h2>
+              <p className="mt-3 max-w-md text-muted">
+                Stores block bots because they roam, scrape and hammer their pages. Standby agents are built to be welcome: they come for one thing, from one
+                customer, and leave when they&apos;re done.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                ["One page, never browsing", "Locked to the link you gave it. It never follows links, searches or visits other sites."],
+                ["A polite pace", "One visit every few minutes, with a hard limit on visits. It slows down or stops when the store asks."],
+                ["Says who it is", "Every visit tells the store what it's doing: one customer, at most one item, until a set date."],
+                ["Stops on time", "When the deadline passes it stops visiting and releases your hold. You can reactivate it."],
+              ].map(([t, b]) => (
+                <div key={t} className="rounded-2xl border border-line p-5">
+                  <div className="font-semibold">{t}</div>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{b}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 

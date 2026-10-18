@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { currentOwner } from "@/lib/owner";
 import { readPage } from "@/lib/page";
+import { agentHeaders } from "@/lib/manners";
 import { draftWatch, AiError } from "@/lib/ai";
 import { fail, storePath } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
   if (!String(wants ?? "").trim()) return fail("Tell Standby what you want, in your own words.");
 
   try {
-    const page = await readPage(path);
+    const page = await readPage(path, agentHeaders(null));
     const listing = await prisma.listing.findUnique({ where: { id: page.listingId } });
     if (!listing || listing.ownerId !== owner.id) return fail("That link is from someone else's demo. Use the links on this page.");
     const draft = await draftWatch({ wants: String(wants), pageText: page.text, today: new Date().toISOString().slice(0, 10) });

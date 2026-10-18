@@ -1,7 +1,8 @@
 import { createHash } from "crypto";
 import type { Mandate } from "@prisma/client";
 import { prisma } from "./prisma";
-import { readPage, type PageOffer } from "./page";
+import { readPage, BackoffError, type PageOffer } from "./page";
+import { agentHeaders, isDue, storePolicy } from "./manners";
 import { scoutLook, bankerReview, AiError, type ScoutLook, type BankerReview } from "./ai";
 import { runVault, type VaultResult } from "./vault";
 import { captureHold, releaseHold, PayPalError } from "./paypal";
@@ -22,7 +23,7 @@ function offerText(o: PageOffer) {
   return `${o.name} (ref ${o.ref}), listed at ${money(o.priceCents)} by ${o.seller}`;
 }
 
-export async function checkMandate(mandateId: string) {
+export async function checkMandate(mandateId: string, opts: { force?: boolean } = {}) {
   if (busy.has(mandateId)) return;
   busy.add(mandateId);
   try {
@@ -30,12 +31,45 @@ export async function checkMandate(mandateId: string) {
     if (!m || m.status !== "WATCHING") return;
     if (m.owner.stopped) return;
 
+    // Time-limited: when the deadline passes, the watch pauses and the hold is released.
     if (new Date() > m.expiresAt) {
-      await endWatch(m, "The deadline passed without a match. Hold released.");
+      await pauseWatch(m, "DEADLINE", "Time's up: nothing matched before your deadline. Hold released. Reactivate to keep watching.");
+      return;
+    }
+    // Visit-limited: a watch can only visit the store so many times.
+    if (m.visits >= m.maxVisits) {
+      await pauseWatch(m, "VISIT_LIMIT", `Visit limit reached (${m.maxVisits} visits). Hold released. Reactivate to keep watching.`);
       return;
     }
 
-    const page = await readPage(m.listingUrl);
+    // The store's rules come first.
+    const policy = await storePolicy(m.listingId);
+    if (policy !== m.storePolicy) await prisma.mandate.update({ where: { id: m.id }, data: { storePolicy: policy } });
+    if (policy === "CLOSED") {
+      await pauseWatch(m, "STORE_CLOSED", "The store asked AI agents not to visit. Paused and hold released.");
+      return;
+    }
+    const current = { ...m, storePolicy: policy };
+    // A fixed pace. "Check now" can skip the wait only when the store hasn't asked agents to slow down,
+    // and never more than once every 5 seconds. Backing off is never skipped.
+    if (m.backoffUntil && m.backoffUntil > new Date()) return;
+    const canForce = opts.force && policy === "WELCOME" && (!m.lastCheckedAt || Date.now() - m.lastCheckedAt.getTime() >= 5_000);
+    if (!canForce && !isDue(current)) return;
+
+    const visit = await prisma.mandate.update({ where: { id: m.id }, data: { visits: { increment: 1 }, lastCheckedAt: new Date() } });
+    let page;
+    try {
+      page = await readPage(m.listingUrl, agentHeaders(m));
+    } catch (e) {
+      if (e instanceof BackoffError) {
+        await prisma.mandate.update({
+          where: { id: m.id },
+          data: { backoffUntil: new Date(Date.now() + e.seconds * 1000), lastNote: `The store asked for a break. Waiting ${e.seconds}s before the next visit.` },
+        });
+        return;
+      }
+      throw e;
+    }
     if (page.listingId !== m.listingId) {
       await note(m.id, "The page no longer shows the item you chose. Waiting.");
       return;
@@ -52,11 +86,11 @@ export async function checkMandate(mandateId: string) {
       .sort((a, b) => a.priceCents - b.priceCents);
 
     if (candidates.length === 0) {
-      await note(m.id, `Nothing new under ${money(m.maxTotalCents)}.`);
+      await note(m.id, policy === "SLOW" ? `Nothing new under ${money(m.maxTotalCents)}. The store asked for one visit a minute.` : `Nothing new under ${money(m.maxTotalCents)}.`);
       return;
     }
 
-    await evaluate(m, candidates[0], page.text);
+    await evaluate({ ...visit, owner: m.owner }, candidates[0], page.text);
   } catch (e) {
     const msg = e instanceof AiError || e instanceof PayPalError || e instanceof Error ? e.message : "Something went wrong.";
     await note(mandateId, `Couldn't check just now: ${msg}`).catch(() => {});
@@ -66,7 +100,7 @@ export async function checkMandate(mandateId: string) {
 }
 
 async function note(mandateId: string, text: string) {
-  await prisma.mandate.update({ where: { id: mandateId }, data: { lastCheckedAt: new Date(), lastNote: text } });
+  await prisma.mandate.update({ where: { id: mandateId }, data: { lastNote: text } });
 }
 
 async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; createdAt: Date } }, offer: PageOffer, pageText: string) {
@@ -158,6 +192,15 @@ export async function decide(ownerId: string, decisionId: string, approve: boole
   }
   await prisma.decision.update({ where: { id: d.id }, data: { decidedBy: "you", vault: JSON.stringify(vault), totalCents: vault.totalCents } });
   await buy(m, d.id, d.offerId, scout.quantity, vault, "APPROVED");
+}
+
+// Paused by time, visit limit or the store: the hold is released, and the owner can reactivate with a new one.
+export async function pauseWatch(m: Mandate, reason: "DEADLINE" | "VISIT_LIMIT" | "STORE_CLOSED", text: string) {
+  if (m.paypalAuthorizationId) await releaseHold(m.paypalAuthorizationId).catch(() => {});
+  await prisma.mandate.update({
+    where: { id: m.id },
+    data: { status: "PAUSED", pausedReason: reason, lastNote: text, paypalAuthorizationId: null, heldCents: null },
+  });
 }
 
 export async function endWatch(m: Mandate, text: string) {

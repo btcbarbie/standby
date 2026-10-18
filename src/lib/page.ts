@@ -25,9 +25,20 @@ export function internalBase() {
   return process.env.INTERNAL_URL ?? `http://127.0.0.1:${process.env.PORT ?? 3300}`;
 }
 
-export async function readPage(url: string): Promise<PageData> {
+// Thrown when the store says "too many requests" or "come back later". The agent waits instead of retrying.
+export class BackoffError extends Error {
+  constructor(public seconds: number) {
+    super(`The store asked agents to wait ${seconds}s.`);
+  }
+}
+
+export async function readPage(url: string, headers: Record<string, string>): Promise<PageData> {
   const absolute = url.startsWith("http") ? url : `${internalBase()}${url}`;
-  const res = await fetch(absolute, { cache: "no-store", headers: { "User-Agent": "StandbyAgent/1.0" } });
+  const res = await fetch(absolute, { cache: "no-store", headers });
+  if (res.status === 429 || res.status === 503) {
+    const after = parseInt(res.headers.get("retry-after") ?? "", 10);
+    throw new BackoffError(Number.isFinite(after) && after > 0 ? after : 120);
+  }
   if (!res.ok) throw new Error(`The page didn't load (${res.status}).`);
   const html = await res.text();
   return parsePage(url, html);

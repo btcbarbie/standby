@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { loadListing, jsonLd, dressDetails } from "@/lib/listing";
 import { money } from "@/lib/format";
 import { currentOwner } from "@/lib/owner";
-import DemoControls from "@/components/DemoControls";
+import StorePanel from "@/components/StorePanel";
+import { logAgentVisit } from "@/lib/storeLog";
 import DressArt from "@/components/DressArt";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export default async function WrenProduct({ params }: PageProps<"/store/wren/p/[
   const listing = await loadListing(id);
   if (!listing || listing.store !== "wren") notFound();
   const d = dressDetails(listing);
+  await logAgentVisit(listing.id);
   const owner = await currentOwner();
   const isMine = owner?.id === listing.ownerId;
 
@@ -111,7 +113,7 @@ export default async function WrenProduct({ params }: PageProps<"/store/wren/p/[
         </section>
       </main>
 
-      {isMine && <DemoControls store="wren" />}
+      {isMine && <StorePanel store="wren" listingId={listing.id} />}
     </div>
   );
 }

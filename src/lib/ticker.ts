@@ -1,9 +1,9 @@
 import { prisma } from "./prisma";
 import { checkMandate } from "./watch";
+import { isDue } from "./manners";
 
-// Watching while you're away: every few seconds, look at each active watch that hasn't been checked recently.
-const EVERY_MS = 5_000;
-const RECHECK_AFTER_MS = 12_000;
+// Watching while you're away: every few seconds, see which watches are due a visit at their own polite pace.
+const EVERY_MS = 2_000;
 
 const g = globalThis as unknown as { standbyTicker?: NodeJS.Timeout };
 
@@ -14,23 +14,12 @@ export function startTicker() {
 
 async function tick() {
   try {
-    const due = await prisma.mandate.findMany({
-      where: {
-        status: "WATCHING",
-        owner: { stopped: false },
-        OR: [{ lastCheckedAt: null }, { lastCheckedAt: { lt: new Date(Date.now() - RECHECK_AFTER_MS) } }],
-      },
-      select: { id: true },
-      take: 20,
-    });
-    await Promise.all(due.map((m) => checkMandate(m.id)));
+    const watching = await prisma.mandate.findMany({ where: { status: "WATCHING", owner: { stopped: false } }, take: 200 });
+    const due = watching.filter((m) => isDue(m) || new Date() > m.expiresAt);
+    await Promise.all(due.slice(0, 20).map((m) => checkMandate(m.id)));
   } catch (e) {
     console.error("Watch tick failed", e);
   }
 }
 
-// After something changes on a store, look straight away instead of waiting for the next tick.
-export async function checkListingNow(listingId: string) {
-  const watching = await prisma.mandate.findMany({ where: { listingId, status: "WATCHING" }, select: { id: true } });
-  await Promise.all(watching.map((m) => checkMandate(m.id)));
-}
+

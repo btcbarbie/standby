@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { currentOwner } from "@/lib/owner";
-import { readPage } from "@/lib/page";
+import { DEMO_MAX_VISITS, DEMO_PACE_SEC } from "@/lib/manners";
 import { prisma } from "@/lib/prisma";
-import { createHold, paypalConfigured } from "@/lib/paypal";
+import { paypalConfigured } from "@/lib/paypal";
+import { startHold } from "@/lib/holds";
 import { fail, publicOrigin, storePath } from "@/lib/http";
-import { money } from "@/lib/format";
 
 // Step 2: the owner confirms the checklist. Standby asks PayPal for a hold of the most this watch may spend.
 export async function POST(req: NextRequest) {
@@ -23,8 +23,9 @@ export async function POST(req: NextRequest) {
   if (!(days >= 1 && days <= 29)) return fail("Watch for 1 to 29 days. A PayPal hold lasts 29 days at most.");
   if (!paypalConfigured()) return fail("PayPal isn't connected yet. Add the sandbox keys to turn watches on.", 503);
 
-  const page = await readPage(path);
-  const listing = await prisma.listing.findUnique({ where: { id: page.listingId } });
+  // No second visit to the store: the item was locked when the checklist was drafted.
+  const listingId = path.split("/").pop()!;
+  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
   if (!listing || listing.ownerId !== owner.id) return fail("That link is from someone else's demo.");
 
   const sellerName = body.anySeller || listing.store === "tixora" ? null : "Wren";
@@ -32,30 +33,25 @@ export async function POST(req: NextRequest) {
     data: {
       ownerId: owner.id,
       wants: String(body.wants).slice(0, 500),
-      title: String(body.title || page.name).slice(0, 60),
+      title: String(body.title || listing.name).slice(0, 60),
       mustHave: JSON.stringify(mustHave),
       listingUrl: path,
-      listingId: page.listingId,
-      itemName: page.name,
+      listingId: listing.id,
+      itemName: listing.name,
       sellerName,
-      kind: page.kind,
+      kind: listing.kind,
       quantity,
       maxTotalCents,
       expiresAt: new Date(Date.now() + days * 86_400_000),
+      days,
+      checkEverySec: DEMO_PACE_SEC,
+      maxVisits: DEMO_MAX_VISITS,
     },
   });
 
   try {
-    const origin = publicOrigin(req);
-    const hold = await createHold({
-      mandateId: mandate.id,
-      amountCents: maxTotalCents,
-      description: `Standby hold: ${mandate.title} (up to ${money(maxTotalCents)})`,
-      returnUrl: `${origin}/paypal/return?watch=${mandate.id}`,
-      cancelUrl: `${origin}/paypal/cancel?watch=${mandate.id}`,
-    });
-    await prisma.mandate.update({ where: { id: mandate.id }, data: { paypalOrderId: hold.orderId } });
-    return NextResponse.json({ id: mandate.id, approveUrl: hold.approveUrl });
+    const approveUrl = await startHold(mandate, publicOrigin(req));
+    return NextResponse.json({ id: mandate.id, approveUrl });
   } catch (e) {
     return NextResponse.json({ id: mandate.id, error: e instanceof Error ? e.message : "PayPal didn't respond." }, { status: 502 });
   }

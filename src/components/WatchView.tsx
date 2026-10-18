@@ -31,10 +31,17 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
     setBusy(true);
     setError(null);
     const res = await fetch(`/api/watches/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
-    if (!res.ok) setError((await res.json()).error);
+    const json = await res.json();
+    if (!res.ok) setError(json.error);
+    else if (json.approveUrl) {
+      window.location.href = json.approveUrl;
+      return;
+    }
     setBusy(false);
     refresh();
   }
+
+  const needsReactivate = w.status === "PAUSED" && w.pausedReason !== "YOU";
 
   async function decide(approve: boolean) {
     setBusy(true);
@@ -59,7 +66,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold tracking-tight">{w.title}</h1>
-                <StatusPill status={w.status} />
+                <StatusPill status={w.status} reason={w.pausedReason} />
               </div>
               <p className="mt-0.5 text-sm text-muted">
                 {w.itemName} on {w.store} ·{" "}
@@ -80,7 +87,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                 </Button>
               </>
             )}
-            {w.status === "PAUSED" && (
+            {w.status === "PAUSED" && w.pausedReason === "YOU" && (
               <Button kind="secondary" disabled={busy} onClick={() => act("resume")}>
                 Resume
               </Button>
@@ -97,7 +104,23 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
           <section className="min-w-0 space-y-4">
-            <LiveLine w={w} working={working} stopped={state.stopped} />
+            {needsReactivate ? (
+              <Card className="flex flex-col gap-4 border-brand/20 p-5 sm:flex-row sm:items-center">
+                <Character who="scout" mood="calm" size={52} className="shrink-0" />
+                <div className="flex-1">
+                  <div className="font-semibold">{w.lastNote}</div>
+                  <p className="mt-1 text-sm text-muted">
+                    Scout has stopped visiting the store and your PayPal hold has been released. Reactivating starts a fresh {w.days}-day round with a new visit
+                    allowance. You&apos;ll approve a new hold.
+                  </p>
+                </div>
+                <Button disabled={busy || !state.paypalReady} onClick={() => act("reactivate")}>
+                  {busy ? "Opening PayPal…" : `Reactivate for ${w.days} days`}
+                </Button>
+              </Card>
+            ) : (
+              <LiveLine w={w} working={working} stopped={state.stopped} />
+            )}
 
             {featured ? (
               <Card className={`p-5 ${pending ? "border-warn/40 ring-2 ring-warn/15" : ""}`}>
@@ -170,6 +193,30 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                 <Row k="Speed limit" v="3 buys / 10 min" />
                 <Row k="Daily limit" v="$500" />
               </dl>
+            </Card>
+
+            <Card className="p-4">
+              <div className="text-sm font-semibold">Polite to the store</div>
+              <div className="mt-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Visits this round</span>
+                  <span className="tabular font-medium">
+                    {w.visits} of {w.maxVisits}
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-bg">
+                  <div className="h-full rounded-full bg-brand" style={{ width: `${Math.min(100, (w.visits / w.maxVisits) * 100)}%` }} />
+                </div>
+              </div>
+              <dl className="mt-3 space-y-1.5 text-sm">
+                <Row k="Pages visited" v="This one only" />
+                <Row k="Pace" v={`Every ${w.paceSec}s${w.paceSec < 60 ? " (demo store)" : ""}`} />
+                <Row k="Store's rules (last visit)" v={w.storePolicy === "SLOW" ? "Slow down" : w.storePolicy === "CLOSED" ? "Closed to AI" : "Welcome"} />
+              </dl>
+              <p className="mt-3 text-xs text-muted">
+                On real stores Scout visits once every 5 minutes. On every visit it tells the store who it is and what it may do:
+              </p>
+              <p className="mt-1.5 rounded-lg bg-bg px-2.5 py-2 font-mono text-[11px] leading-relaxed text-ink/80">{d.declaration}</p>
             </Card>
 
             <Card className="p-4">

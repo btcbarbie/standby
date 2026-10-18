@@ -103,13 +103,13 @@ function WatchRow({ w }: { w: WatchSummary }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold">{w.title}</span>
-            <StatusPill status={w.status} />
+            <StatusPill status={w.status} reason={w.pausedReason} />
           </div>
           <div className="mt-0.5 truncate text-sm text-muted">
             {w.itemName} · {w.store} · up to {money(w.maxTotalCents)}
           </div>
           <div className="mt-1 truncate text-xs text-muted">
-            {w.status === "WATCHING" && <><TimeAgo at={w.lastCheckedAt} prefix="Checked " /> · </>}
+            {w.status === "WATCHING" && <><TimeAgo at={w.lastCheckedAt} prefix="Checked " /> · {w.visits} visits · </>}
             {w.lastNote ?? (w.status === "SETUP" ? "Approve the PayPal hold to start watching." : "")}
           </div>
         </div>

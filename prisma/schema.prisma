@@ -44,8 +44,19 @@ model Mandate {
   maxTotalCents Int
   expiresAt    DateTime
 
+  days         Int      @default(14)
+
   // SETUP (waiting for PayPal) | WATCHING | PAUSED | NEEDS_YOU | BOUGHT | ENDED
   status       String   @default("SETUP")
+  // Why it's paused: YOU | DEADLINE | VISIT_LIMIT | STORE_CLOSED
+  pausedReason String?
+
+  // Polite to the store: one page, a fixed pace, a visit limit, and it backs off when asked.
+  checkEverySec Int     @default(300)
+  maxVisits     Int     @default(2000)
+  visits        Int     @default(0)
+  backoffUntil  DateTime?
+  storePolicy   String?  // what the store last said: WELCOME | SLOW | CLOSED
   lastCheckedAt DateTime?
   lastNote     String?
 
@@ -103,6 +114,8 @@ model Listing {
   name      String
   subtitle  String
   details   String   // JSON with store-specific details (venue, date, map legend, fabric...)
+  // How this store treats AI shopping agents: WELCOME | SLOW (one visit a minute) | CLOSED
+  agentPolicy String @default("WELCOME")
 
   offers Offer[]
 }
@@ -126,6 +139,18 @@ model Offer {
   hiddenNote String   @default("")
 
   @@index([listingId])
+}
+
+// The store's own log of AI agents, built from how each agent introduces itself on every visit.
+model StoreVisit {
+  id         String   @id @default(cuid())
+  at         DateTime @default(now())
+  listingId  String
+  agent      String   // the agent's User-Agent
+  declared   String   // what the agent said it's allowed to do
+  mandateRef String   // the agent's watch reference (not personal data)
+
+  @@index([listingId, at])
 }
 
 model StoreOrder {

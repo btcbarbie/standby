@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { loadListing, jsonLd, ticketDetails } from "@/lib/listing";
 import { money, shortDate } from "@/lib/format";
 import { currentOwner } from "@/lib/owner";
-import DemoControls from "@/components/DemoControls";
+import StorePanel from "@/components/StorePanel";
+import { logAgentVisit } from "@/lib/storeLog";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ export default async function TixoraEvent({ params }: PageProps<"/store/tixora/e
   const listing = await loadListing(id);
   if (!listing || listing.store !== "tixora") notFound();
   const d = ticketDetails(listing);
+  await logAgentVisit(listing.id);
   const owner = await currentOwner();
   const isMine = owner?.id === listing.ownerId;
   const available = listing.offers.filter((o) => o.stock > 0);
@@ -102,7 +104,7 @@ export default async function TixoraEvent({ params }: PageProps<"/store/tixora/e
         </div>
       </main>
 
-      {isMine && <DemoControls store="tixora" />}
+      {isMine && <StorePanel store="tixora" listingId={listing.id} />}
     </div>
   );
 }

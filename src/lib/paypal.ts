@@ -57,8 +57,8 @@ async function call(path: string, method: "GET" | "POST", requestId?: string, bo
 
 const usd = (cents: number) => ({ currency_code: "USD", value: (cents / 100).toFixed(2) });
 
-export async function createHold(input: { mandateId: string; amountCents: number; description: string; returnUrl: string; cancelUrl: string }) {
-  const json = await call("/v2/checkout/orders", "POST", `hold-${input.mandateId}`, {
+export async function createHold(input: { mandateId: string; round: number; amountCents: number; description: string; returnUrl: string; cancelUrl: string }) {
+  const json = await call("/v2/checkout/orders", "POST", `hold-${input.mandateId}-${input.round}`, {
     intent: "AUTHORIZE",
     purchase_units: [
       {

@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { listingUrl } from "./stores";
 import { paypalConfigured } from "./paypal";
+import { agentRef, declaration, effectivePaceSec } from "./manners";
 import type { ScoutLook, BankerReview } from "./ai";
 import type { VaultResult } from "./vault";
 
@@ -33,6 +34,13 @@ export async function loadState(ownerId: string, watchId?: string | null) {
     createdAt: m.createdAt.toISOString(),
     lastCheckedAt: m.lastCheckedAt?.toISOString() ?? null,
     lastNote: m.lastNote,
+    pausedReason: m.pausedReason,
+    visits: m.visits,
+    maxVisits: m.maxVisits,
+    paceSec: effectivePaceSec(m),
+    storePolicy: m.storePolicy,
+    days: m.days,
+    backoffUntil: m.backoffUntil?.toISOString() ?? null,
     looked: m._count.decisions,
     last: m.decisions[0]
       ? { outcome: m.decisions[0].outcome, reason: m.decisions[0].reason, offerLabel: m.decisions[0].offerLabel, at: m.decisions[0].createdAt.toISOString() }
@@ -52,6 +60,8 @@ export async function loadState(ownerId: string, watchId?: string | null) {
         paypalOrderId: m.paypalOrderId,
         paypalAuthorizationId: m.paypalAuthorizationId,
         holdExpiresAt: m.holdExpiresAt?.toISOString() ?? null,
+        declaration: declaration(m).replace(/visit \d+ of (\d+)/, "at most $1 visits"),
+        agentRef: agentRef(m.id),
         decisions: m.decisions.map((d) => ({
           id: d.id,
           seq: d.seq,
