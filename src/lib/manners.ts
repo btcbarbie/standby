@@ -53,7 +53,9 @@ export async function storePolicy(listingId: string): Promise<StorePolicy> {
   const hit = policyCache.get(listingId);
   if (hit && Date.now() - hit.at < 20_000) return hit.policy;
   try {
-    const res = await fetch(`${internalBase()}/store/agents/${listingId}`, { cache: "no-store", headers: { "User-Agent": AGENT_UA } });
+    const url = `${internalBase()}/store/agents/${listingId}`;
+    const { signedHeaders } = await import("./agentKey");
+    const res = await fetch(url, { cache: "no-store", headers: await signedHeaders(url, { "User-Agent": AGENT_UA }) });
     const json = await res.json();
     const policy: StorePolicy = json.aiAgents === "closed" ? "CLOSED" : json.aiAgents === "slow" ? "SLOW" : "WELCOME";
     policyCache.set(listingId, { at: Date.now(), policy });

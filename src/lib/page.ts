@@ -34,7 +34,9 @@ export class BackoffError extends Error {
 
 export async function readPage(url: string, headers: Record<string, string>): Promise<PageData> {
   const absolute = url.startsWith("http") ? url : `${internalBase()}${url}`;
-  const res = await fetch(absolute, { cache: "no-store", headers });
+  // Every visit is signed (Web Bot Auth), so the store can verify it really is Standby.
+  const { signedHeaders } = await import("./agentKey");
+  const res = await fetch(absolute, { cache: "no-store", headers: await signedHeaders(absolute, headers) });
   if (res.status === 429 || res.status === 503) {
     const after = parseInt(res.headers.get("retry-after") ?? "", 10);
     throw new BackoffError(Number.isFinite(after) && after > 0 ? after : 120);

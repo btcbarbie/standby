@@ -12,7 +12,7 @@ export default async function TixoraEvent({ params }: PageProps<"/store/tixora/e
   const listing = await loadListing(id);
   if (!listing || listing.store !== "tixora") notFound();
   const d = ticketDetails(listing);
-  await logAgentVisit(listing.id);
+  await logAgentVisit(listing.id, `/store/tixora/e/${listing.id}`);
   const owner = await currentOwner();
   const isMine = owner?.id === listing.ownerId;
   const available = listing.offers.filter((o) => o.stock > 0);

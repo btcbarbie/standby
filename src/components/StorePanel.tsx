@@ -13,11 +13,11 @@ import TimeAgo from "./TimeAgo";
 type Visitors = {
   policy: "WELCOME" | "SLOW" | "CLOSED";
   lastHour: number;
-  agents: { ref: string; agent: string; declared: string; visits: number; first: string; last: string }[];
+  agents: { ref: string; agent: string; declared: string; visits: number; verified: boolean; signedBy: string | null; first: string; last: string }[];
 };
 
 const POLICIES: { key: Visitors["policy"]; label: string; hint: string }[] = [
-  { key: "WELCOME", label: "Welcome", hint: "Agents that introduce themselves may visit." },
+  { key: "WELCOME", label: "Welcome", hint: "Agents that sign their visits may visit." },
   { key: "SLOW", label: "Slow down", hint: "One visit a minute per agent." },
   { key: "CLOSED", label: "Closed to AI", hint: "Agents should not visit." },
 ];
@@ -156,8 +156,17 @@ export default function StorePanel({ store, listingId }: { store: StoreKey; list
                     {visitors.agents.map((a) => (
                       <li key={a.ref} className="rounded-xl border border-[#e4e7ec] px-3 py-2">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="font-semibold">
+                          <span className="flex flex-wrap items-center gap-2 font-semibold">
                             {a.agent.split(" ")[0]} <span className="font-normal text-[#5a6478]">· {a.ref}</span>
+                            {a.verified ? (
+                              <span className="rounded-full bg-[#dcfae6] px-2 py-0.5 text-xs font-semibold text-[#067647]" title="Web Bot Auth signature checked against the operator's published key">
+                                ✓ Verified · signed by {a.signedBy}
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-[#fee4e2] px-2 py-0.5 text-xs font-semibold text-[#b42318]" title="No valid Web Bot Auth signature">
+                                ✕ Not verified · can&apos;t prove who it is
+                              </span>
+                            )}
                           </span>
                           <span className="text-xs text-[#5a6478]">
                             {a.visits} visit{a.visits > 1 ? "s" : ""} · last <TimeAgo at={a.last} />

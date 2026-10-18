@@ -177,7 +177,7 @@ export default function Landing() {
               {[
                 ["One page, never browsing", "Locked to the link you gave it. It never follows links, searches or visits other sites."],
                 ["A polite pace", "One visit every few minutes, with a hard limit on visits. It slows down or stops when the store asks."],
-                ["Says who it is", "Every visit tells the store what it's doing: one customer, at most one item, until a set date."],
+                ["Says who it is, and proves it", "Every visit says what it's doing (one customer, at most one item, until a set date) and is signed, so the store can verify it really is Standby."],
                 ["Stops on time", "When the deadline passes it stops visiting and releases your hold. You can reactivate it."],
               ].map(([t, b]) => (
                 <div key={t} className="rounded-2xl border border-line p-5">

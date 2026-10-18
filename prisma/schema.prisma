@@ -149,6 +149,9 @@ model StoreVisit {
   agent      String   // the agent's User-Agent
   declared   String   // what the agent said it's allowed to do
   mandateRef String   // the agent's watch reference (not personal data)
+  // Web Bot Auth: did the signature check out against the agent's published key?
+  verified   Boolean  @default(false)
+  signedBy   String?  // the host whose key directory vouched for it
 
   @@index([listingId, at])
 }
@@ -161,4 +164,11 @@ model StoreOrder {
   totalCents Int
   mandateId  String
   paypalCaptureId String
+}
+
+// Standby's own signing key for Web Bot Auth. Made once, kept in the database so it survives restarts.
+model AgentKey {
+  id        String   @id
+  createdAt DateTime @default(now())
+  jwk       String   // private Ed25519 JWK (JSON)
 }

@@ -15,7 +15,7 @@ export default async function WrenProduct({ params }: PageProps<"/store/wren/p/[
   const listing = await loadListing(id);
   if (!listing || listing.store !== "wren") notFound();
   const d = dressDetails(listing);
-  await logAgentVisit(listing.id);
+  await logAgentVisit(listing.id, `/store/wren/p/${listing.id}`);
   const owner = await currentOwner();
   const isMine = owner?.id === listing.ownerId;
 
