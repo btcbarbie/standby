@@ -9,7 +9,7 @@ import type { DecisionView } from "@/lib/state";
 
 // One decision, replayed as a short exchange between the cast.
 
-function Bubble({ who, mood, line, children }: { who: Who; mood: Mood; line: string; children?: React.ReactNode }) {
+function Bubble({ who, mood, line, by, children }: { who: Who; mood: Mood; line: string; by?: string; children?: React.ReactNode }) {
   const c = CAST[who];
   return (
     <div className="rise flex gap-3">
@@ -17,6 +17,7 @@ function Bubble({ who, mood, line, children }: { who: Who; mood: Mood; line: str
       <div className="min-w-0 flex-1">
         <div className="text-xs font-semibold" style={{ color: c.color }}>
           {c.name}
+          {by && <span className="font-normal text-muted"> · {by}</span>}
         </div>
         <div className="mt-1 rounded-2xl rounded-tl-md px-3.5 py-2.5 text-[15px] leading-snug" style={{ background: c.soft }}>
           {line}
@@ -94,12 +95,12 @@ export default function Scene({
 
   return (
     <div className="space-y-4">
-      <Bubble who="scout" mood={scoutMood} line={d.scout.line}>
+      <Bubble who="scout" mood={scoutMood} line={d.scout.line} by={d.scout.by}>
         <Notes items={d.scout.reasons} />
       </Bubble>
 
       {d.banker && (
-        <Bubble who="banker" mood={bankerMood} line={d.banker.line}>
+        <Bubble who="banker" mood={bankerMood} line={d.banker.line} by={d.banker.by}>
           {d.banker.redFlags.length > 0 && (
             <div className="mt-2 rounded-xl border border-warn/30 bg-warn-soft px-3 py-2 text-sm text-warn">
               <span className="font-semibold">Red flag: </span>
@@ -117,7 +118,7 @@ export default function Scene({
       )}
 
       {d.vault && (
-        <Bubble who="vault" mood={vaultMood} line={d.vault.line}>
+        <Bubble who="vault" mood={vaultMood} line={d.vault.line} by="code, not AI">
           <Checks items={d.vault.checks} />
         </Bubble>
       )}

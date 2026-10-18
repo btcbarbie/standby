@@ -1,6 +1,9 @@
 import Link from "next/link";
 import Character, { CAST, type Mood, type Who } from "@/components/Character";
 import { Logo } from "@/components/ui";
+import { scoutProvider } from "@/lib/ai";
+
+export const dynamic = "force-dynamic";
 
 const SAMPLE: { who: Who; mood: Mood; line: string }[] = [
   { who: "scout", mood: "happy", line: "Section 106, Row E just dropped to $32. Left wing, one ticket. This is the one." },
@@ -18,6 +21,7 @@ const NEVER = [
 ];
 
 export default function Landing() {
+  const twoCompanies = scoutProvider() === "Gemini";
   return (
     <div className="min-h-screen bg-white">
       <header className="border-b border-line">
@@ -110,8 +114,10 @@ export default function Landing() {
                   <p className="mt-3 text-xs font-medium text-ink/70">
                     {
                       {
-                        scout: "An AI. Reads the page, proposes a purchase. Can't pay.",
-                        banker: "A second AI. Reviews blind, flags tricks. Can't pay.",
+                        scout: `An AI (${twoCompanies ? "Google Gemini" : "Anthropic Claude"}). Reads the page, proposes a purchase. Can't pay.`,
+                        banker: twoCompanies
+                          ? "A second AI from a different company (Anthropic Claude). Reviews blind, flags tricks. Can't pay."
+                          : "A second AI (Anthropic Claude). Reviews blind, flags tricks. Can't pay.",
                         vault: "Not an AI. Plain rules: item, seller, price, quantity, speed.",
                         you: "Approve the PayPal hold once. Break any tie.",
                       }[who]

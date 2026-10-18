@@ -12,7 +12,9 @@ Standby lets an AI agent buy something for you while you're away (the concert ti
 2. **Approve one PayPal hold.** PayPal authorizes the most this watch may spend (Orders v2, `intent: AUTHORIZE`). Nothing is taken yet.
 3. **Two yeses, or it waits.** When a new offer appears, three checks run independently:
    - **Scout** (AI) reads the page and says whether the offer matches your words.
-   - **Banker** (a second AI call with a different job) reviews the same offer *without* seeing Scout's answer, and flags tricks such as instructions hidden in a listing.
+   - **Banker** (a second AI with a different job) reviews the same offer *without* seeing Scout's answer, and flags tricks such as instructions hidden in a listing.
+
+   Scout runs on **Google Gemini** and the Banker on **Anthropic Claude**, so the two AIs come from different companies with different blind spots: no single AI company can move your money. (Without a Gemini key, Scout falls back to Claude and each decision records which model answered.)
    - **Vault** (plain code) checks the numbers: same item, seller, quantity, total with fees, inside the PayPal hold, deadline, one purchase per watch, speed limit and daily limit.
 
    Vault says no: blocked. Scout and Banker both yes: Standby captures the actual amount from the hold (never more). Both no: skipped. Anything else: it waits for you.
@@ -48,7 +50,7 @@ npm run dev            # http://localhost:3300
 
 ## Tech
 
-Next.js 16, Prisma + SQLite, Claude Opus 5.5 via the Anthropic API (structured outputs, server-side refusal fallback), PayPal Orders v2 and Payments v2 (authorize, capture, void) in the sandbox, and Cloudflare's `web-bot-auth` for signed agent visits.
+Next.js 16, Prisma + SQLite, Gemini 3.8 Flash via `@google/genai` (Scout), Claude Opus 5.5 via the Anthropic API (Banker and setup) (structured outputs, server-side refusal fallback), PayPal Orders v2 and Payments v2 (authorize, capture, void) in the sandbox, and Cloudflare's `web-bot-auth` for signed agent visits.
 
 ## License
 
