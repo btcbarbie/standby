@@ -6,12 +6,37 @@ import Character from "./Character";
 import { AppHeader, Button, Card } from "./ui";
 import type { Draft } from "@/lib/ai";
 
-type Item = { url: string; listingId: string; name: string; kind: string; store: string; storeSeller: string | null };
+type Item = {
+  url: string;
+  listingId: string;
+  name: string;
+  kind: string;
+  store: string;
+  storeSeller: string | null;
+  isDemo: boolean;
+  acceptsAiBuyers: boolean;
+  options: number;
+  inStock: number;
+};
 
 const PRESETS = {
   ticket: { wants: "One ticket for the Nova Adé show, left wing only, under $40 including fees. Just one ticket, never more." },
   dress: { wants: "The Ada wrap dress in green, size 8. Only from Wren itself, and no more than $70 with shipping." },
 };
+
+// Real stores whose robots.txt lets automated agents read product pages (and keeps them out of checkout).
+const REAL = [
+  {
+    label: "Allbirds · Tree Runner",
+    url: "https://www.allbirds.com/products/mens-tree-runners",
+    wants: "Men's Tree Runner in Jet Black with the white sole, size 8. Under $110. Just one pair.",
+  },
+  {
+    label: "Gymshark · Arrival shorts",
+    url: "https://www.gymshark.com/products/gymshark-arrival-5-shorts-black-ss22",
+    wants: "Arrival 5 inch shorts in black, size M. Under $30. One pair.",
+  },
+];
 
 export default function NewWatch({
   stores,
@@ -25,12 +50,13 @@ export default function NewWatch({
   origin: string;
 }) {
   const start = preset === "ticket" || preset === "dress" ? preset : null;
+  const startReal = preset === "real" ? REAL[0] : null;
   const linkFor = (kind: "ticket" | "dress") => {
     const link = kind === "ticket" ? stores.tixora : stores.wren;
     return link ? `${origin}${link}` : "";
   };
-  const [url, setUrl] = useState(start ? linkFor(start) : "");
-  const [wants, setWants] = useState(start ? PRESETS[start].wants : "");
+  const [url, setUrl] = useState(start ? linkFor(start) : (startReal?.url ?? ""));
+  const [wants, setWants] = useState(start ? PRESETS[start].wants : (startReal?.wants ?? ""));
   const [busy, setBusy] = useState<"draft" | "hold" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<Item | null>(null);
@@ -43,10 +69,17 @@ export default function NewWatch({
   const [quantity, setQuantity] = useState("1");
   const [days, setDays] = useState("14");
   const [anySeller, setAnySeller] = useState(false);
+  const [mode, setMode] = useState<"ALERT" | "BUY">("ALERT");
 
   function fill(kind: "ticket" | "dress") {
     setUrl(linkFor(kind));
     setWants(PRESETS[kind].wants);
+    setDraft(null);
+  }
+
+  function fillReal(r: (typeof REAL)[number]) {
+    setUrl(r.url);
+    setWants(r.wants);
     setDraft(null);
   }
 
@@ -66,6 +99,7 @@ export default function NewWatch({
       setQuantity(String(d.quantity ?? 1));
       setDays(String(Math.min(29, Math.max(1, d.expiresInDays ?? 14))));
       setAnySeller(json.item.storeSeller ? d.anySeller : true);
+      setMode(json.item.acceptsAiBuyers ? "BUY" : "ALERT");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -80,11 +114,11 @@ export default function NewWatch({
       const res = await fetch("/api/watches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: item!.url, wants, title, mustHave, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller }),
+        body: JSON.stringify({ url: item!.url, wants, title, mustHave, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      window.location.href = json.approveUrl;
+      window.location.href = json.approveUrl ?? `/app/w/${json.id}`;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
       setBusy(null);
@@ -120,6 +154,14 @@ export default function NewWatch({
             <button onClick={() => fill("dress")} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
               Wren · wrap dress
             </button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <span className="py-1 text-muted">Real stores:</span>
+            {REAL.map((r) => (
+              <button key={r.url} onClick={() => fillReal(r)} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
+                {r.label}
+              </button>
+            ))}
           </div>
 
           <label className="mt-6 block text-sm font-semibold" htmlFor="wants">
@@ -161,7 +203,13 @@ export default function NewWatch({
               <div className="mt-1 font-medium">{item.name}</div>
               <div className="text-muted">
                 on {item.store}
-                {item.storeSeller ? (anySeller ? " · any seller of this exact item" : ` · sold by ${item.storeSeller} only`) : " · any reseller on this event page"}
+                {!item.isDemo
+                  ? ` · ${item.options} option${item.options === 1 ? "" : "s"} on the page, ${item.inStock} in stock right now`
+                  : item.storeSeller
+                    ? anySeller
+                      ? " · any seller of this exact item"
+                      : ` · sold by ${item.storeSeller} only`
+                    : " · any reseller on this event page"}
               </div>
               {item.storeSeller && (
                 <label className="mt-2 flex items-center gap-2 text-xs text-muted">
@@ -198,24 +246,65 @@ export default function NewWatch({
               <Field label="Watch for (days)" value={days} onChange={setDays} />
             </div>
 
-            <div className="mt-6 rounded-xl border border-line p-4 text-sm">
+            <div className="mt-6 text-sm font-semibold">4. When it matches</div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <ModeCard
+                selected={mode === "ALERT"}
+                onSelect={() => setMode("ALERT")}
+                title="Alert me, I'll pay"
+                body={item.isDemo ? "Standby tells you. You approve the payment in PayPal yourself." : "Standby tells you. You buy it on the store's own checkout."}
+              />
+              <ModeCard
+                selected={mode === "BUY"}
+                onSelect={() => item.acceptsAiBuyers && setMode("BUY")}
+                disabled={!item.acceptsAiBuyers}
+                title="Buy it for me"
+                body={
+                  item.acceptsAiBuyers
+                    ? `Approve a PayPal hold now. Standby pays the moment every check passes, never more than $${maxTotal || "…"}.`
+                    : "Not available here: this store doesn't accept AI buyers yet. Stores opt in through programmes like PayPal's Agent Ready."
+                }
+              />
+            </div>
+
+            <div className="mt-4 rounded-xl border border-line p-4 text-sm">
               <div className="flex gap-3">
                 <Character who="vault" mood="calm" size={40} className="shrink-0" />
                 <div>
-                  <div className="font-semibold">PayPal holds up to ${maxTotal || "…"}. Nothing is taken yet.</div>
-                  <p className="mt-1 text-muted">
-                    Money only moves if Scout finds a match, the Banker agrees, and every Vault limit passes. If nothing matches, the hold is released. Holds last up to 29 days.
-                  </p>
+                  {mode === "BUY" ? (
+                    <>
+                      <div className="font-semibold">PayPal holds up to ${maxTotal || "…"}. Nothing is taken yet.</div>
+                      <p className="mt-1 text-muted">
+                        Money only moves if Scout finds a match, the Banker agrees, and every Vault limit passes. If nothing matches, the hold is released. Holds last up to 29
+                        days.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="font-semibold">Nothing is held, and nothing is paid by Standby.</div>
+                      <p className="mt-1 text-muted">
+                        {item.isDemo
+                          ? "When Scout, the Banker and the Vault all agree, you get a find to approve in PayPal."
+                          : "Scout visits this one page every 5 minutes, says who it is, and never touches the store's checkout. When all three checks agree, you get a find and a link to buy it."}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
 
-            {!paypalReady && <p className="mt-3 text-sm text-bad">PayPal isn&apos;t connected on this server yet, so watches can&apos;t start.</p>}
+            {mode === "BUY" && !paypalReady && <p className="mt-3 text-sm text-bad">PayPal isn&apos;t connected on this server yet, so Buy it for me can&apos;t start. Alert me works without it.</p>}
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <Button onClick={startWatch} disabled={busy !== null || !paypalReady || !maxTotal || mustHave.length === 0} className="bg-[#0070e0] hover:bg-[#005ec2]">
-                {busy === "hold" ? "Opening PayPal…" : "Approve the hold with PayPal"}
-              </Button>
+              {mode === "BUY" ? (
+                <Button onClick={startWatch} disabled={busy !== null || !paypalReady || !maxTotal || mustHave.length === 0} className="bg-[#0070e0] hover:bg-[#005ec2]">
+                  {busy === "hold" ? "Opening PayPal…" : "Approve the hold with PayPal"}
+                </Button>
+              ) : (
+                <Button onClick={startWatch} disabled={busy !== null || !maxTotal || mustHave.length === 0}>
+                  {busy === "hold" ? "Starting…" : "Start watching"}
+                </Button>
+              )}
               <Button kind="ghost" onClick={() => setDraft(null)}>
                 Start over
               </Button>
@@ -226,6 +315,25 @@ export default function NewWatch({
         {error && <p className="mt-4 rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>}
       </main>
     </div>
+  );
+}
+
+function ModeCard({ selected, onSelect, title, body, disabled }: { selected: boolean; onSelect: () => void; title: string; body: string; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={disabled}
+      className={`rounded-xl border p-3 text-left transition ${selected ? "border-ink bg-bg ring-1 ring-ink" : "border-line hover:border-ink"} disabled:cursor-not-allowed disabled:opacity-55`}
+    >
+      <span className="flex items-center gap-2 text-sm font-semibold">
+        <span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? "border-ink bg-ink" : "border-line"}`}>
+          {selected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+        </span>
+        {title}
+      </span>
+      <span className="mt-1 block text-xs leading-relaxed text-muted">{body}</span>
+    </button>
   );
 }
 

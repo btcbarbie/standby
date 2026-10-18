@@ -19,7 +19,14 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/watches/[id
   } else if (action === "resume" && m.status === "PAUSED" && m.pausedReason === "YOU") {
     await prisma.mandate.update({ where: { id }, data: { status: "WATCHING", pausedReason: null, lastNote: "Watching again." } });
   } else if (action === "reactivate" && m.status === "PAUSED" && m.pausedReason !== "YOU") {
-    // A fresh round: new deadline, new visit allowance, and a new PayPal hold to approve.
+    // A fresh round: new deadline, new visit allowance, and (in buy mode) a new PayPal hold to approve.
+    if (m.mode === "ALERT") {
+      await prisma.mandate.update({
+        where: { id },
+        data: { status: "WATCHING", pausedReason: null, expiresAt: new Date(Date.now() + m.days * 86_400_000), visits: 0, backoffUntil: null, lastNote: "Reactivated. Watching again." },
+      });
+      return NextResponse.json({ ok: true });
+    }
     if (!paypalConfigured()) return fail("PayPal isn't connected on this server yet.", 503);
     const fresh = await prisma.mandate.update({
       where: { id },

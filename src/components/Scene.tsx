@@ -71,8 +71,24 @@ function Notes({ items }: { items: string[] }) {
   );
 }
 
-export default function Scene({ d, onDecide, busy }: { d: DecisionView; onDecide?: (approve: boolean) => void; busy?: boolean }) {
-  const scoutMood: Mood = d.outcome === "SKIPPED" ? "calm" : d.outcome === "BLOCKED" || d.outcome === "NEEDS_YOU" ? "thinking" : "happy";
+type FoundAction = "pay" | "bought" | "pass";
+
+export default function Scene({
+  d,
+  onDecide,
+  onFound,
+  busy,
+  mode = "BUY",
+  canPay = false,
+}: {
+  d: DecisionView;
+  onDecide?: (approve: boolean) => void;
+  onFound?: (action: FoundAction) => void;
+  busy?: boolean;
+  mode?: string;
+  canPay?: boolean;
+}) {
+  const scoutMood: Mood = d.outcome === "SKIPPED" || d.outcome === "PASSED" ? "calm" : d.outcome === "BLOCKED" || d.outcome === "NEEDS_YOU" ? "thinking" : "happy";
   const bankerMood: Mood = !d.banker ? "calm" : d.banker.verdict === "APPROVE" && d.banker.redFlags.length === 0 ? "happy" : d.banker.redFlags.length ? "alert" : "stern";
   const vaultMood: Mood = !d.vault ? "calm" : d.vault.pass ? "happy" : "stern";
 
@@ -117,8 +133,10 @@ export default function Scene({ d, onDecide, busy }: { d: DecisionView; onDecide
           <div className="flex-1 text-sm">
             <div className="font-semibold">Your call.</div>
             <div className="text-muted">
-              {disagreement(d)} Nothing is paid unless you say yes
-              {d.totalCents ? `, and then ${money(d.totalCents)} comes out of your PayPal hold` : ""}.
+              {disagreement(d)}{" "}
+              {mode === "ALERT"
+                ? "Say yes and it becomes a find for you to buy. Nothing is paid by Standby."
+                : `Nothing is paid unless you say yes${d.totalCents ? `, and then ${money(d.totalCents)} comes out of your PayPal hold` : ""}.`}
             </div>
           </div>
           <div className="flex gap-2">
@@ -128,6 +146,43 @@ export default function Scene({ d, onDecide, busy }: { d: DecisionView; onDecide
             <Button disabled={busy} onClick={() => onDecide(true)}>
               {busy ? "Working…" : "Buy it"}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {d.outcome === "FOUND" && onFound && (
+        <div className="rise space-y-3 rounded-2xl border border-good/25 bg-good-soft/60 p-4">
+          <div className="flex gap-3">
+          <Character who="you" size={44} className="shrink-0" />
+          <div className="flex-1 text-sm">
+            <div className="font-semibold">Found it. Your turn.</div>
+            <div className="text-muted">
+              {d.offerUrl && !canPay
+                ? "Standby never checks out on a real store. Open the page and buy it yourself, then tell Standby so it stops watching."
+                : "You asked to approve payments yourself. Approve this one in PayPal and it's done."}
+            </div>
+          </div>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:pl-14">
+            <Button kind="secondary" disabled={busy} onClick={() => onFound("pass")}>
+              Not this one
+            </Button>
+            {canPay ? (
+              <Button disabled={busy} onClick={() => onFound("pay")} className="bg-[#0070e0] hover:bg-[#005ec2]">
+                {busy ? "Opening PayPal…" : `Pay ${d.totalCents ? money(d.totalCents) : ""} with PayPal`}
+              </Button>
+            ) : (
+              <>
+                {d.offerUrl && (
+                  <a href={d.offerUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-black">
+                    Open the store ↗
+                  </a>
+                )}
+                <Button kind="secondary" disabled={busy} onClick={() => onFound("bought")}>
+                  I bought it
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -159,6 +214,12 @@ export function verdictLine(d: DecisionView) {
       return "Both checks said yes. Paying through PayPal…";
     case "BOUGHT":
       return `Both checks said yes. Paid ${d.totalCents ? money(d.totalCents) : ""} through PayPal.`;
+    case "FOUND":
+      return "All three checks passed. Standby didn't pay: you asked to be told first.";
+    case "YOU_BOUGHT":
+      return "You bought it yourself on the store's own checkout.";
+    case "PASSED":
+      return "You passed on it. Standby kept watching.";
     case "APPROVED":
       return `You approved it. Paid ${d.totalCents ? money(d.totalCents) : ""} through PayPal.`;
     case "DENIED":

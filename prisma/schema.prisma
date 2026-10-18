@@ -45,8 +45,13 @@ model Mandate {
   expiresAt    DateTime
 
   days         Int      @default(14)
+  // ALERT: tell me when it matches and I'll pay. BUY: pre-approved, pay as soon as every check passes.
+  mode         String   @default("BUY")
+  // false = a real website (watch and alert only); true = a demo store that accepts AI buyers
+  isDemo       Boolean  @default(true)
+  storeName    String   @default("")
 
-  // SETUP (waiting for PayPal) | WATCHING | PAUSED | NEEDS_YOU | BOUGHT | ENDED
+  // SETUP (waiting for PayPal) | WATCHING | PAUSED | NEEDS_YOU | FOUND (alert mode: your turn) | BOUGHT | ENDED
   status       String   @default("SETUP")
   // Why it's paused: YOU | DEADLINE | VISIT_LIMIT | STORE_CLOSED
   pausedReason String?
@@ -86,11 +91,13 @@ model Decision {
   scout       String   // JSON: Scout's proposal
   banker      String?  // JSON: Banker's blind review
   vault       String?  // JSON: list of rule checks
-  // SKIPPED | BLOCKED | NEEDS_YOU | BOUGHT | APPROVED | DENIED | FAILED
+  // SKIPPED | BLOCKED | NEEDS_YOU | FOUND | BOUGHT | APPROVED | YOU_BOUGHT | DENIED | PASSED | FAILED
   outcome     String
   reason      String
   totalCents  Int?
   paypalCaptureId String?
+  paypalOrderId   String?  // alert mode on a demo store: the order you approved yourself
+  offerUrl    String?  // where to buy it (real stores)
   decidedBy   String?  // "agents" | "you"
   decidedAt   DateTime?
 

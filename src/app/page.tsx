@@ -128,7 +128,7 @@ export default function Landing() {
           <ol className="mt-8 grid gap-4 lg:grid-cols-3">
             {[
               ["Point and say", "Paste the link to the exact item or event. Say what you want in plain words: one ticket, left wing, under $40 with fees. Standby turns it into a checklist you confirm."],
-              ["Approve one PayPal hold", "PayPal holds the most you'll spend. Nothing is taken. If nothing matches before your deadline, the hold is released."],
+              ["Choose: alert me, or buy for me", "Alert me: Standby tells you and you pay. Buy for me: PayPal holds the most you'll spend, nothing is taken until it matches, and the hold is released if nothing does."],
               ["Two yeses, or it waits", "When something turns up, Scout proposes it. The Banker checks it blind and the Vault runs its limits. Both yes: it's bought. A disagreement comes to you."],
             ].map(([t, b], i) => (
               <li key={t} className="rounded-2xl border border-line p-6">

@@ -109,3 +109,32 @@ export async function releaseHold(authorizationId: string) {
 export async function getCapture(captureId: string) {
   return call(`/v2/payments/captures/${captureId}`, "GET");
 }
+
+// Alert mode: the owner approves one specific payment themselves, then it's captured straight away.
+export async function createPayment(input: { decisionId: string; amountCents: number; description: string; returnUrl: string; cancelUrl: string }) {
+  const json = await call("/v2/checkout/orders", "POST", `pay-${input.decisionId}`, {
+    intent: "CAPTURE",
+    purchase_units: [{ reference_id: input.decisionId, custom_id: input.decisionId, description: input.description.slice(0, 127), amount: usd(input.amountCents) }],
+    payment_source: {
+      paypal: {
+        experience_context: {
+          brand_name: "Standby",
+          shipping_preference: "NO_SHIPPING",
+          user_action: "PAY_NOW",
+          return_url: input.returnUrl,
+          cancel_url: input.cancelUrl,
+        },
+      },
+    },
+  });
+  const approve = (json.links as { rel: string; href: string }[]).find((l) => l.rel === "payer-action" || l.rel === "approve");
+  if (!approve) throw new PayPalError("PayPal didn't return an approval link.");
+  return { orderId: json.id as string, approveUrl: approve.href };
+}
+
+export async function capturePayment(orderId: string) {
+  const json = await call(`/v2/checkout/orders/${orderId}/capture`, "POST", `capture-${orderId}`);
+  const cap = json.purchase_units?.[0]?.payments?.captures?.[0];
+  if (!cap?.id || cap.status !== "COMPLETED") throw new PayPalError(`PayPal didn't complete the payment (${cap?.status ?? json.status}).`);
+  return { captureId: cap.id as string };
+}

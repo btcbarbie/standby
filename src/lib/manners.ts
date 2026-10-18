@@ -10,6 +10,7 @@ export const DEMO_PACE_SEC = 10;
 export const REAL_PACE_SEC = 300;
 export const DEMO_MAX_VISITS = 600;
 export const SLOW_PACE_SEC = 60;
+export const REAL_MAX_VISITS = 500;
 
 export const AGENT_UA = "StandbyAgent/1.0 (one page, one customer)";
 
@@ -24,10 +25,10 @@ export function isDue(m: Pick<Mandate, "checkEverySec" | "storePolicy" | "lastCh
 }
 
 // What the agent tells the store about itself on every visit. No personal data: a watch reference only.
-export function declaration(m: Pick<Mandate, "quantity" | "expiresAt" | "checkEverySec" | "maxVisits" | "visits">) {
+export function declaration(m: Pick<Mandate, "quantity" | "expiresAt" | "checkEverySec" | "maxVisits" | "visits" | "mode">) {
   return [
     "watching 1 page for 1 customer",
-    `buys at most ${m.quantity} item${m.quantity > 1 ? "s" : ""}, once`,
+    m.mode === "ALERT" ? "never buys: tells its customer, who checks out themselves" : `buys at most ${m.quantity} item${m.quantity > 1 ? "s" : ""}, once`,
     `until ${m.expiresAt.toISOString().slice(0, 10)}`,
     `checks every ${m.checkEverySec}s`,
     `visit ${m.visits + 1} of ${m.maxVisits}`,

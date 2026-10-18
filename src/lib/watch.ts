@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { Mandate } from "@prisma/client";
 import { prisma } from "./prisma";
 import { readPage, BackoffError, type PageOffer } from "./page";
+import { RobotsBlocked } from "./safeFetch";
 import { agentHeaders, isDue, storePolicy } from "./manners";
 import { scoutLook, bankerReview, AiError, type ScoutLook, type BankerReview } from "./ai";
 import { runVault, type VaultResult } from "./vault";
@@ -33,27 +34,28 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
 
     // Time-limited: when the deadline passes, the watch pauses and the hold is released.
     if (new Date() > m.expiresAt) {
-      await pauseWatch(m, "DEADLINE", "Time's up: nothing matched before your deadline. Hold released. Reactivate to keep watching.");
+      await pauseWatch(m, "DEADLINE", `Time's up: nothing matched before your deadline.${m.mode === "BUY" ? " Hold released." : ""} Reactivate to keep watching.`);
       return;
     }
     // Visit-limited: a watch can only visit the store so many times.
     if (m.visits >= m.maxVisits) {
-      await pauseWatch(m, "VISIT_LIMIT", `Visit limit reached (${m.maxVisits} visits). Hold released. Reactivate to keep watching.`);
+      await pauseWatch(m, "VISIT_LIMIT", `Visit limit reached (${m.maxVisits} visits).${m.mode === "BUY" ? " Hold released." : ""} Reactivate to keep watching.`);
       return;
     }
 
-    // The store's rules come first.
-    const policy = await storePolicy(m.listingId);
+    // The store's rules come first. Demo stores publish rules for AI agents; real stores have robots.txt (checked on every visit).
+    const policy = m.isDemo ? await storePolicy(m.listingId) : "WELCOME";
     if (policy !== m.storePolicy) await prisma.mandate.update({ where: { id: m.id }, data: { storePolicy: policy } });
     if (policy === "CLOSED") {
-      await pauseWatch(m, "STORE_CLOSED", "The store asked AI agents not to visit. Paused and hold released.");
+      await pauseWatch(m, "STORE_CLOSED", `The store asked AI agents not to visit. Paused${m.mode === "BUY" ? " and hold released" : ""}.`);
       return;
     }
     const current = { ...m, storePolicy: policy };
     // A fixed pace. "Check now" can skip the wait only when the store hasn't asked agents to slow down,
     // and never more than once every 5 seconds. Backing off is never skipped.
     if (m.backoffUntil && m.backoffUntil > new Date()) return;
-    const canForce = opts.force && policy === "WELCOME" && (!m.lastCheckedAt || Date.now() - m.lastCheckedAt.getTime() >= 5_000);
+    const minGap = m.isDemo ? 5_000 : 60_000;
+    const canForce = opts.force && policy === "WELCOME" && (!m.lastCheckedAt || Date.now() - m.lastCheckedAt.getTime() >= minGap);
     if (!canForce && !isDue(current)) return;
 
     const visit = await prisma.mandate.update({ where: { id: m.id }, data: { visits: { increment: 1 }, lastCheckedAt: new Date() } });
@@ -61,6 +63,10 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
     try {
       page = await readPage(m.listingUrl, agentHeaders(m));
     } catch (e) {
+      if (e instanceof RobotsBlocked) {
+        await pauseWatch(m, "STORE_CLOSED", "This store's robots.txt asks automated agents not to visit this page. Paused.");
+        return;
+      }
       if (e instanceof BackoffError) {
         await prisma.mandate.update({
           where: { id: m.id },
@@ -112,7 +118,7 @@ async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; cr
   await note(m.id, `Scout, the Banker and the Vault are looking at ${offer.name}…`);
   const [scout, banker] = await Promise.all([scoutLook(base), bankerReview(base)]);
   const quantity = scout.isMatch ? scout.quantity : m.quantity;
-  const vault = await runVault(m.owner, m, offer.id, quantity);
+  const vault = await runVault(m.owner, m, offer.id, quantity, offer);
 
   const scoutYes = scout.isMatch;
   const bankerYes = banker.verdict === "APPROVE" && banker.redFlags.length === 0;
@@ -124,6 +130,7 @@ async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; cr
     banker: JSON.stringify(banker),
     vault: JSON.stringify(vault),
     totalCents: vault.totalCents,
+    offerUrl: offer.url ?? null,
   };
 
   // 1. The Vault's limits are final.
@@ -138,7 +145,13 @@ async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; cr
     await note(m.id, `Passed on ${offer.name}. Still watching.`);
     return;
   }
-  // 3. Everyone agrees: buy.
+  // 3. Everyone agrees. In alert mode, tell the owner and stop; they pay themselves.
+  if (scoutYes && bankerYes && m.mode === "ALERT") {
+    await seal(m.id, { ...record, outcome: "FOUND", reason: "All three checks passed. Your turn.", decidedBy: "agents" });
+    await prisma.mandate.update({ where: { id: m.id }, data: { status: "FOUND", lastNote: `Found it: ${offer.name}. Your turn.` } });
+    return;
+  }
+  //    In buy mode, pay from the hold.
   if (scoutYes && bankerYes) {
     const d = await seal(m.id, { ...record, outcome: "BUYING", reason: "Both checks said yes.", decidedBy: "agents" });
     await buy(m, d.id, offer.id, quantity, vault, "BOUGHT");
@@ -184,14 +197,47 @@ export async function decide(ownerId: string, decisionId: string, approve: boole
 
   // The Vault runs again: prices and stock may have changed since the agents looked.
   const scout: ScoutLook = JSON.parse(d.scout);
-  const vault = await runVault(m.owner, { ...m, status: "WATCHING" }, d.offerId, scout.quantity);
+  const vault = await runVault(m.owner, { ...m, status: "WATCHING" }, d.offerId, scout.quantity, JSON.parse(d.snapshot));
   if (!vault.pass) {
     await prisma.decision.update({ where: { id: d.id }, data: { outcome: "BLOCKED", reason: vault.line, vault: JSON.stringify(vault), decidedBy: "you", decidedAt: new Date() } });
     await prisma.mandate.update({ where: { id: m.id }, data: { status: "WATCHING", lastNote: "The Vault blocked it on a second look." } });
     return;
   }
   await prisma.decision.update({ where: { id: d.id }, data: { decidedBy: "you", vault: JSON.stringify(vault), totalCents: vault.totalCents } });
+  if (m.mode === "ALERT") {
+    // Alert mode never pays by itself: your yes turns it into a find for you to buy.
+    await prisma.decision.update({ where: { id: d.id }, data: { outcome: "FOUND", reason: "You said it's the one. Your turn to buy." } });
+    await prisma.mandate.update({ where: { id: m.id }, data: { status: "FOUND", lastNote: `Found it: ${d.offerLabel}. Your turn.` } });
+    return;
+  }
   await buy(m, d.id, d.offerId, scout.quantity, vault, "APPROVED");
+}
+
+// ---------- Alert mode: after a find, you buy it (or don't) ----------
+
+export async function foundAction(ownerId: string, decisionId: string, action: "bought" | "pass") {
+  const d = await prisma.decision.findUnique({ where: { id: decisionId }, include: { mandate: true } });
+  if (!d || d.mandate.ownerId !== ownerId) throw new Error("Not found.");
+  if (d.outcome !== "FOUND") throw new Error("This one is already settled.");
+  if (action === "bought") {
+    await prisma.decision.update({ where: { id: d.id }, data: { outcome: "YOU_BOUGHT", reason: "You bought it yourself.", decidedBy: "you", decidedAt: new Date() } });
+    await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "BOUGHT", lastNote: "You bought it yourself. Watch finished." } });
+  } else {
+    await prisma.decision.update({ where: { id: d.id }, data: { outcome: "PASSED", reason: "You passed on it.", decidedBy: "you", decidedAt: new Date() } });
+    await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "WATCHING", lastNote: "You passed on it. Still watching." } });
+  }
+}
+
+// Alert mode on a store that takes PayPal: you approve this one payment yourself, then it's captured.
+export async function completeAlertPayment(decisionId: string, captureId: string) {
+  const d = await prisma.decision.findUniqueOrThrow({ where: { id: decisionId }, include: { mandate: true } });
+  const scout: ScoutLook = JSON.parse(d.scout);
+  await placeOrder(d.offerId, scout.quantity, d.totalCents ?? 0, d.mandateId, captureId);
+  await prisma.decision.update({
+    where: { id: d.id },
+    data: { outcome: "APPROVED", reason: "You approved and paid with PayPal.", paypalCaptureId: captureId, decidedBy: "you", decidedAt: new Date() },
+  });
+  await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "BOUGHT", lastNote: `You paid ${money(d.totalCents ?? 0)} with PayPal. Capture ${captureId}.` } });
 }
 
 // Paused by time, visit limit or the store: the hold is released, and the owner can reactivate with a new one.
@@ -213,6 +259,7 @@ export async function endWatch(m: Mandate, text: string) {
 // ---------- Sealed record: each decision carries a hash of the one before it ----------
 
 type DecisionInput = {
+  offerUrl?: string | null;
   offerId: string;
   offerLabel: string;
   snapshot: string;

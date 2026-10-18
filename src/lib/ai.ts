@@ -50,7 +50,9 @@ export const Draft = z.object({
   quantity: z.number().int().nullable().describe("How many to buy. Null if they didn't say."),
   expiresInDays: z.number().int().nullable().describe("How many days to keep watching, if the owner said or the page implies a deadline (like the day before an event). Null otherwise."),
   anySeller: z.boolean().describe("True if any seller of this exact item is fine (always true for resale tickets), false if it must be the store's own listing."),
-  scoutLine: z.string().describe("What Scout says when it starts watching: one friendly sentence, at most 22 words, saying exactly what it will wait for."),
+  scoutLine: z
+    .string()
+    .describe("What Scout says when it starts watching: one friendly sentence, at most 22 words, saying exactly what it will watch for. Don't say you'll buy or pay; the owner chooses that separately."),
   unclear: z.array(z.string()).describe("Anything in the owner's words you couldn't match to this page. Usually empty."),
 });
 export type Draft = z.infer<typeof Draft>;

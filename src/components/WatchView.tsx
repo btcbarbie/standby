@@ -21,7 +21,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
   const d = state.detail!;
   if (!w || !d) return null;
 
-  const pending = d.decisions.find((x) => x.outcome === "NEEDS_YOU");
+  const pending = d.decisions.find((x) => x.outcome === "NEEDS_YOU" || x.outcome === "FOUND");
   const latest = d.decisions[0];
   const featured = pending ?? latest;
   const rest = d.decisions.filter((x) => x.id !== featured?.id);
@@ -43,11 +43,16 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
 
   const needsReactivate = w.status === "PAUSED" && w.pausedReason !== "YOU";
 
-  async function decide(approve: boolean) {
+  async function decide(body: { approve?: boolean; action?: string }) {
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/decisions/${pending!.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approve }) });
-    if (!res.ok) setError((await res.json()).error);
+    const res = await fetch(`/api/decisions/${pending!.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const json = await res.json();
+    if (!res.ok) setError(json.error);
+    else if (json.approveUrl) {
+      window.location.href = json.approveUrl;
+      return;
+    }
     setBusy(false);
     refresh();
   }
@@ -62,14 +67,14 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
 
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Character who="scout" mood={w.status === "BOUGHT" ? "happy" : pending ? "alert" : working ? "thinking" : "calm"} size={64} />
+            <Character who="scout" mood={w.status === "BOUGHT" || w.status === "FOUND" ? "happy" : pending ? "alert" : working ? "thinking" : "calm"} size={64} />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold tracking-tight">{w.title}</h1>
                 <StatusPill status={w.status} reason={w.pausedReason} />
               </div>
               <p className="mt-0.5 text-sm text-muted">
-                {w.itemName} on {w.store} ·{" "}
+                {w.itemName} on {w.store} · {w.mode === "ALERT" ? "Alert me" : "Buy for me"} ·{" "}
                 <a href={w.listingUrl} target="_blank" rel="noreferrer" className="font-medium text-brand">
                   Open the page ↗
                 </a>
@@ -110,12 +115,13 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                 <div className="flex-1">
                   <div className="font-semibold">{w.lastNote}</div>
                   <p className="mt-1 text-sm text-muted">
-                    Scout has stopped visiting the store and your PayPal hold has been released. Reactivating starts a fresh {w.days}-day round with a new visit
-                    allowance. You&apos;ll approve a new hold.
+                    {w.mode === "BUY"
+                      ? `Scout has stopped visiting the store and your PayPal hold has been released. Reactivating starts a fresh ${w.days}-day round with a new visit allowance. You'll approve a new hold.`
+                      : `Scout has stopped visiting the store. Reactivating starts a fresh ${w.days}-day round with a new visit allowance.`}
                   </p>
                 </div>
-                <Button disabled={busy || !state.paypalReady} onClick={() => act("reactivate")}>
-                  {busy ? "Opening PayPal…" : `Reactivate for ${w.days} days`}
+                <Button disabled={busy || (w.mode === "BUY" && !state.paypalReady)} onClick={() => act("reactivate")}>
+                  {busy ? "Working…" : `Reactivate for ${w.days} days`}
                 </Button>
               </Card>
             ) : (
@@ -128,7 +134,14 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                   <h2 className="font-semibold">{featured.offerLabel}</h2>
                   <span className="text-xs text-muted">Decision {featured.seq}</span>
                 </div>
-                <Scene d={featured} onDecide={decide} busy={busy} />
+                <Scene
+                  d={featured}
+                  onDecide={(approve) => decide({ approve })}
+                  onFound={(action) => decide({ action })}
+                  busy={busy}
+                  mode={w.mode}
+                  canPay={w.isDemo && state.paypalReady}
+                />
               </Card>
             ) : (
               w.status !== "SETUP" && (
@@ -154,7 +167,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                       </button>
                       {openId === x.id && (
                         <div className="px-4 pb-5">
-                          <Scene d={x} />
+                          <Scene d={x} mode={w.mode} />
                         </div>
                       )}
                     </div>
@@ -185,6 +198,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                 <span className="text-sm font-semibold">Vault limits</span>
               </div>
               <dl className="mt-3 space-y-1.5 text-sm">
+                <Row k="Mode" v={w.mode === "ALERT" ? "Alert me, I pay" : "Buy for me (pre-approved)"} />
                 <Row k="Item" v={w.itemName} />
                 <Row k="Seller" v={d.sellerName ? `${d.sellerName} only` : "Any seller"} />
                 <Row k="Quantity" v={String(w.quantity)} />
@@ -210,8 +224,11 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
               </div>
               <dl className="mt-3 space-y-1.5 text-sm">
                 <Row k="Pages visited" v="This one only" />
-                <Row k="Pace" v={`Every ${w.paceSec}s${w.paceSec < 60 ? " (demo store)" : ""}`} />
-                <Row k="Store's rules (last visit)" v={w.storePolicy === "SLOW" ? "Slow down" : w.storePolicy === "CLOSED" ? "Closed to AI" : "Welcome"} />
+                <Row k="Pace" v={w.paceSec >= 60 ? `Every ${Math.round(w.paceSec / 60)} min` : `Every ${w.paceSec}s (demo store)`} />
+                <Row
+                  k={w.isDemo ? "Store's rules (last visit)" : "Store's robots.txt"}
+                  v={w.isDemo ? (w.storePolicy === "SLOW" ? "Slow down" : w.storePolicy === "CLOSED" ? "Closed to AI" : "Welcome") : w.pausedReason === "STORE_CLOSED" ? "Says no" : "Allows this page"}
+                />
               </dl>
               <p className="mt-3 text-xs text-muted">
                 On real stores Scout visits once every 5 minutes. On every visit it tells the store who it is and what it may do:
@@ -219,19 +236,30 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
               <p className="mt-1.5 rounded-lg bg-bg px-2.5 py-2 font-mono text-[11px] leading-relaxed text-ink/80">{d.declaration}</p>
             </Card>
 
+            {w.mode === "ALERT" ? (
+              <Card className="p-4">
+                <div className="text-sm font-semibold">Payment</div>
+                <p className="mt-1 text-sm text-muted">
+                  {w.isDemo
+                    ? "Alert me: nothing is held. When it matches, you approve that one payment in PayPal yourself."
+                    : "Alert me: Standby never touches this store's checkout. When it matches, you buy it on the store's own site."}
+                </p>
+              </Card>
+            ) : (
             <Card className="p-4">
-              <div className="text-sm font-semibold">PayPal hold</div>
-              {d.paypalAuthorizationId ? (
-                <dl className="mt-2 space-y-1.5 text-sm">
-                  <Row k="Held" v={money(d.heldCents ?? 0)} />
-                  <Row k="Authorization" v={d.paypalAuthorizationId} mono />
-                  {d.holdExpiresAt && <Row k="Hold ends" v={shortDate(d.holdExpiresAt)} />}
-                </dl>
-              ) : (
-                <p className="mt-1 text-sm text-muted">Not approved yet. Nothing is held and nothing can be bought.</p>
-              )}
-              <p className="mt-3 text-xs text-muted">Only the amount actually spent is taken. Anything left is released.</p>
-            </Card>
+                <div className="text-sm font-semibold">PayPal hold</div>
+                {d.paypalAuthorizationId ? (
+                  <dl className="mt-2 space-y-1.5 text-sm">
+                    <Row k="Held" v={money(d.heldCents ?? 0)} />
+                    <Row k="Authorization" v={d.paypalAuthorizationId} mono />
+                    {d.holdExpiresAt && <Row k="Hold ends" v={shortDate(d.holdExpiresAt)} />}
+                  </dl>
+                ) : (
+                  <p className="mt-1 text-sm text-muted">Not approved yet. Nothing is held and nothing can be bought.</p>
+                )}
+                <p className="mt-3 text-xs text-muted">Only the amount actually spent is taken. Anything left is released.</p>
+              </Card>
+            )}
 
             <p className="px-1 text-xs text-muted">
               {d.decisions.length} decision{d.decisions.length === 1 ? "" : "s"} recorded. Each is sealed to the one before it, so later changes show.

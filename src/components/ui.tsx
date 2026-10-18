@@ -32,6 +32,7 @@ export const STATUS: Record<string, { label: string; cls: string }> = {
   WATCHING: { label: "Watching", cls: "bg-brand-soft text-brand" },
   PAUSED: { label: "Paused", cls: "bg-vault-soft text-vault" },
   NEEDS_YOU: { label: "Needs you", cls: "bg-warn-soft text-warn" },
+  FOUND: { label: "Found it · your turn", cls: "bg-good-soft text-good" },
   BOUGHT: { label: "Bought", cls: "bg-good-soft text-good" },
   ENDED: { label: "Ended", cls: "bg-vault-soft text-vault" },
 };
@@ -61,6 +62,9 @@ export const OUTCOME: Record<string, { label: string; cls: string; icon: string 
   BUYING: { label: "Paying…", cls: "bg-brand-soft text-brand", icon: "…" },
   BOUGHT: { label: "Bought", cls: "bg-good-soft text-good", icon: "✓" },
   APPROVED: { label: "You approved · Bought", cls: "bg-good-soft text-good", icon: "✓" },
+  FOUND: { label: "Found it", cls: "bg-good-soft text-good", icon: "★" },
+  YOU_BOUGHT: { label: "You bought it", cls: "bg-good-soft text-good", icon: "✓" },
+  PASSED: { label: "You passed", cls: "bg-vault-soft text-vault", icon: "→" },
   DENIED: { label: "You said no", cls: "bg-vault-soft text-vault", icon: "✕" },
   FAILED: { label: "Payment failed", cls: "bg-bad-soft text-bad", icon: "!" },
 };

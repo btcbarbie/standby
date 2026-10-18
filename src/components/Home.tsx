@@ -106,7 +106,7 @@ function WatchRow({ w }: { w: WatchSummary }) {
             <StatusPill status={w.status} reason={w.pausedReason} />
           </div>
           <div className="mt-0.5 truncate text-sm text-muted">
-            {w.itemName} · {w.store} · up to {money(w.maxTotalCents)}
+            {w.itemName} · {w.store} · up to {money(w.maxTotalCents)} · {w.mode === "ALERT" ? "Alert me" : "Buy for me"}
           </div>
           <div className="mt-1 truncate text-xs text-muted">
             {w.status === "WATCHING" && <><TimeAgo at={w.lastCheckedAt} prefix="Checked " /> · {w.visits} visits · </>}
@@ -151,6 +151,9 @@ function Empty({ stores }: { stores: AppState["stores"] }) {
             Try it: a sold-out dress in your size
           </Link>
         )}
+        <Link href="/app/new?try=real" className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-semibold hover:border-ink">
+          Try it on a real store
+        </Link>
       </div>
     </Card>
   );
