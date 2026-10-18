@@ -4,6 +4,8 @@
 
 Standby lets an AI agent buy something for you while you're away (the concert ticket that drops under $40, the sold-out dress back in your size), but money only moves when independent checks agree.
 
+**Live demo:** https://standby-production-dd56.up.railway.app (PayPal sandbox, test money only)
+
 > Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). Runs on the PayPal sandbox with test money only.
 
 ## How it works
