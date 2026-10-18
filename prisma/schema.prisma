@@ -42,6 +42,9 @@ model Mandate {
   // The exact options the owner ticked (variant names, e.g. "Size 9"). The Vault checks every offer against these in code.
   // null = no option lock (ticket listings change all the time, so only the AIs judge those).
   options      String?
+  // For listings that change over time (resale tickets): name fragments the owner confirmed, e.g. "Section 101" … "Section 108".
+  // A listing must contain one of them, checked in code. null = no such rule.
+  mustMatch    String?
   kind         String   // TICKET | DRESS
   quantity     Int      @default(1)
   maxTotalCents Int

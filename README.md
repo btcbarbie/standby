@@ -25,6 +25,15 @@ Every decision is recorded and sealed to the one before it (a hash chain), so la
 
 In the language of Google's [Agent Payments Protocol (AP2)](https://ap2-protocol.org/), a watch is an **intent mandate** for a human-not-present purchase: the owner's own words, the confirmed checklist and hard limits, set up before the agent acts. Standby's addition is how the mandate is enforced: dual consensus between two independent AI checks, with code limits underneath and the owner as tie-breaker.
 
+## Can a bad AI decision spend outside your mandate?
+
+No, and it's tested. `npm run audit:mandate` assumes **both AIs are compromised** (they always say yes, and pick any quantity an attacker wants), then checks whether code alone lets money move in 15 scenarios: wrong section, hidden fees, a trick listing asking for 4 tickets, another seller, the wrong colour, more than the PayPal hold, after the deadline, with Stop all on, a second purchase while the first is still paying, approving a stale "Needs you", and paying for a find after the price rose. Every one is blocked by code, while genuine matches still go through.
+
+What makes that true:
+- **Your choices become code rules.** Options you tick (a size, a colour) and listing names you confirm (Sections 101–108) are checked by the Vault, not by AI judgement.
+- **Fresh checks at the last moment.** The Vault re-reads Stop all and the watch's state after the AIs answer, counts a purchase that's still paying as "already bought", and runs again before any payment you approve yourself.
+- **The money is capped by PayPal too.** A watch can only capture from a hold you approved, and never more than its total.
+
 ## Guardrails for the store
 
 Stores block bots that roam and hammer their pages. A Standby agent is built to be welcome:

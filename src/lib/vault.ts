@@ -22,6 +22,7 @@ async function quoteFor(m: Mandate, offerId: string, quantity: number, pageOffer
     offerId,
     listingId: m.listingId,
     seller: pageOffer.seller,
+    label: pageOffer.name,
     stock: pageOffer.inStock ? quantity : 0,
     unitCents: pageOffer.priceCents,
     feeCents: 0,
@@ -29,12 +30,29 @@ async function quoteFor(m: Mandate, offerId: string, quantity: number, pageOffer
   };
 }
 
+// Names are compared as whole phrases, so "Section 10" never matches "Section 104".
+function containsPhrase(name: string, phrase: string) {
+  const p = phrase.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return p.length > 0 && new RegExp(`(^|[^A-Za-z0-9])${p}([^A-Za-z0-9]|$)`, "i").test(name);
+}
+
+const LIVE_STATUSES = ["WATCHING", "NEEDS_YOU", "FOUND"];
+
 export async function runVault(owner: Owner, m: Mandate, offerId: string, quantity: number, pageOffer?: PageOffer): Promise<VaultResult> {
+  // Never trust copies taken before the AIs started thinking (that can be a minute): re-read the switches now.
+  const freshOwner = (await prisma.owner.findUnique({ where: { id: owner.id } })) ?? owner;
+  const freshMandate = await prisma.mandate.findUnique({ where: { id: m.id } });
+  const status = freshMandate?.status ?? m.status;
   const q = await quoteFor(m, offerId, quantity, pageOffer);
   const checks: VaultCheck[] = [];
   const add = (key: string, label: string, ok: boolean, detail: string) => checks.push({ key, label, ok, detail });
 
-  add("on", "Watching is switched on", !owner.stopped && m.status !== "PAUSED", owner.stopped ? "Stop all is on." : "Yes.");
+  add(
+    "on",
+    "Watching is switched on",
+    !freshOwner.stopped && LIVE_STATUSES.includes(status),
+    freshOwner.stopped ? "Stop all is on." : LIVE_STATUSES.includes(status) ? "Yes." : `This watch is ${status.toLowerCase()}.`,
+  );
   add("deadline", "Before the deadline", new Date() < m.expiresAt, `Watch ends ${m.expiresAt.toDateString()}.`);
 
   if (!q) {
@@ -47,10 +65,16 @@ export async function runVault(owner: Owner, m: Mandate, offerId: string, quanti
       m.sellerName ? q.seller === m.sellerName : true,
       m.sellerName ? (q.seller === m.sellerName ? `Sold by ${q.seller}.` : `Sold by ${q.seller}, not ${m.sellerName}.`) : `Any seller allowed (${q.seller}).`,
     );
+    if (m.mustMatch) {
+      // For listings that come and go (tickets): the owner confirmed which names are acceptable, e.g. Section 101–108.
+      const allowed: string[] = JSON.parse(m.mustMatch);
+      const ok = allowed.some((a) => containsPhrase(q.label, a));
+      add("listing", "A listing you allowed", ok, ok ? `${q.label}.` : `${q.label} isn't one of: ${allowed.join(", ")}.`);
+    }
     if (m.options) {
       // The owner ticked exact options at setup. Code compares names; no AI judgement involved.
       const picked: string[] = JSON.parse(m.options);
-      const name = pageOffer?.name ?? "";
+      const name = q.label;
       const ok = picked.includes(name);
       add("option", "The option you picked", ok, ok ? `${name}.` : `${name || "This offer"} isn't one you ticked (${picked.join(", ")}).`);
     }
@@ -76,7 +100,8 @@ export async function runVault(owner: Owner, m: Mandate, offerId: string, quanti
     }
   }
 
-  const done = await prisma.decision.count({ where: { mandateId: m.id, outcome: { in: ["BOUGHT", "APPROVED", "YOU_BOUGHT"] } } });
+  // A purchase that is still being paid for counts too, so two can never run at once.
+  const done = await prisma.decision.count({ where: { mandateId: m.id, outcome: { in: ["BUYING", "BOUGHT", "APPROVED", "YOU_BOUGHT"] } } });
   add("once", "Only one purchase per watch", done === 0, done === 0 ? "Nothing bought yet." : "Already bought.");
 
   const since = new Date(Date.now() - SPEED_LIMIT.minutes * 60_000);

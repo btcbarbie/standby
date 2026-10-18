@@ -59,6 +59,7 @@ export async function loadState(ownerId: string, watchId?: string | null) {
         mustHave: JSON.parse(m.mustHave) as string[],
         sellerName: m.sellerName,
         options: m.options ? (JSON.parse(m.options) as string[]) : null,
+        mustMatch: m.mustMatch ? (JSON.parse(m.mustMatch) as string[]) : null,
         heldCents: m.heldCents,
         paypalOrderId: m.paypalOrderId,
         paypalAuthorizationId: m.paypalAuthorizationId,

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "prisma db push && next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "audit:mandate": "tsx scripts/mandate-audit.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.134.0",
@@ -31,6 +32,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   },
   "engines": {

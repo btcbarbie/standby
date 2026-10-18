@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { currentOwner } from "@/lib/owner";
 import { runDemoEvent } from "@/lib/stores";
 import { fail } from "@/lib/http";
+import { allow, LIMITS } from "@/lib/rateLimit";
 import { prisma } from "@/lib/prisma";
 import { listingUrl } from "@/lib/stores";
 import { internalBase } from "@/lib/page";
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
   const owner = await currentOwner();
   if (!owner) return fail("Open the demo first.", 401);
   const { key } = await req.json();
+  if (!allow(`demo:${owner.id}`, LIMITS.demoEventsPerOwner10Min, 600_000).ok) return fail("Easy there: that's a lot of store changes. Give it a few minutes.", 429);
   try {
     if (key === "t-copycat") {
       await copycatVisit(owner.id);

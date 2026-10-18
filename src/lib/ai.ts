@@ -86,6 +86,11 @@ export const Draft = z.object({
   matchingOptionIds: z
     .array(z.string())
     .describe("The ids of the listed options that match what the owner wants, sold out ones included. Empty if the options don't apply (for example ticket listings that change all the time) or none match."),
+  listingMustInclude: z
+    .array(z.string())
+    .describe(
+      "Only for listings that come and go (like resale tickets): the exact fragments an acceptable listing's name must contain, one per allowed value, written the way this page names its listings. E.g. for 'left wing' on a page whose wing is sections 101–108: 'Section 101', 'Section 102', … 'Section 108'. Code rejects any listing whose name contains none of them. Empty for products with fixed options, or if the owner set no such limit.",
+    ),
   cantSee: z
     .array(z.string())
     .describe("Plain sentences telling the owner which of their wishes this page doesn't show, so Standby can't check them. E.g. 'This page doesn't show shipping costs, so I can't check \"under $5 shipping\".' Empty if none."),

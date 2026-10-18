@@ -187,6 +187,7 @@ export async function quote(offerId: string, quantity: number) {
     offerId: offer.id,
     listingId: offer.listingId,
     seller: offer.seller,
+    label: offer.label,
     stock: offer.stock,
     unitCents: offer.priceCents,
     feeCents: offer.feeCents,
