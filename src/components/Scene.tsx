@@ -158,9 +158,11 @@ export default function Scene({
           <div className="flex-1 text-sm">
             <div className="font-semibold">Found it. Your turn.</div>
             <div className="text-muted">
-              {d.offerUrl && !canPay
-                ? "Standby never checks out on a real store. Open the page and buy it yourself, then tell Standby so it stops watching."
-                : "You asked to approve payments yourself. Approve this one in PayPal and it's done."}
+              {canPay
+                ? "You asked to approve payments yourself. Approve this one in PayPal and it's done."
+                : d.offerUrl
+                  ? "Standby never checks out on a real store. Open the page and buy it yourself, then tell Standby so it stops watching."
+                  : "You'd approve this payment in PayPal yourself, but PayPal isn't connected on this server yet."}
             </div>
           </div>
           </div>
@@ -179,9 +181,11 @@ export default function Scene({
                     Open the store ↗
                   </a>
                 )}
-                <Button kind="secondary" disabled={busy} onClick={() => onFound("bought")}>
-                  I bought it
-                </Button>
+                {d.offerUrl && (
+                  <Button kind="secondary" disabled={busy} onClick={() => onFound("bought")}>
+                    I bought it
+                  </Button>
+                )}
               </>
             )}
           </div>
