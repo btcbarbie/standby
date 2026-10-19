@@ -21,7 +21,13 @@ export type PageData = {
   text: string;
   isDemo: boolean;
   storeName: string;
+  // Does the page offer PayPal as a way to pay? Standby only takes on stores that do.
+  acceptsPayPal: boolean;
 };
+
+function mentionsPayPal(html: string) {
+  return /paypal/i.test(html);
+}
 
 // Store pages are served by this same app, so the agent reads them over the local network.
 export function internalBase() {
@@ -90,6 +96,7 @@ export function parseDemoPage(url: string, html: string): PageData {
     text: htmlToText(html),
     isDemo: true,
     storeName: url.includes("/tixora/") ? "Tixora" : "Wren",
+    acceptsPayPal: mentionsPayPal(html),
   };
 }
 
@@ -199,6 +206,7 @@ export function parseRealPage(url: string, html: string): PageData {
     text: `${summary}\n\n--- Page text (excerpt) ---\n${htmlToText(html).slice(0, 6000)}`,
     isDemo: false,
     storeName: host,
+    acceptsPayPal: mentionsPayPal(html),
   };
 }
 

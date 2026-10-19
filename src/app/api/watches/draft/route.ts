@@ -27,6 +27,10 @@ export async function POST(req: NextRequest) {
       const real = await assertPublicUrl(String(url ?? "").trim());
       page = await readPage(real.toString(), agentHeaders(null));
     }
+    // Only shopping pages that take PayPal: a real store, a real price, and a payment method with buyer protection.
+    if (!page.acceptsPayPal) {
+      return fail("Standby only watches shopping pages that accept PayPal, and this page doesn't show PayPal as a way to pay.");
+    }
     rememberDraft(owner.id, page);
     // Sizes and colours are stable choices you can tick. Resale ticket listings come and go, so those aren't pickable.
     const pickable = page.kind !== "TICKET";

@@ -58,6 +58,7 @@ export default async function WrenProduct({ params }: PageProps<"/store/wren/p/[
           </h1>
           <p className="mt-2 text-xl">{money(price)}</p>
           <p className="mt-1 text-sm text-black/60">{d.shippingNote}</p>
+          <p className="mt-1 text-sm text-black/60">Pay with PayPal or card.</p>
 
           <div className="mt-8 space-y-6">
             {d.colors.map((c) => (

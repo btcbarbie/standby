@@ -56,11 +56,13 @@ export default function NewWatch({
   paypalReady,
   preset,
   origin,
+  pastedUrl,
 }: {
   stores: { tixora: string | null; wren: string | null };
   paypalReady: boolean;
   preset: string | null;
   origin: string;
+  pastedUrl?: string | null;
 }) {
   const start = preset === "ticket" || preset === "dress" ? preset : null;
   const startReal = preset === "real" ? REAL[0] : null;
@@ -68,7 +70,7 @@ export default function NewWatch({
     const link = kind === "ticket" ? stores.tixora : stores.wren;
     return link ? `${origin}${link}` : "";
   };
-  const [url, setUrl] = useState(start ? linkFor(start) : (startReal?.url ?? ""));
+  const [url, setUrl] = useState(start ? linkFor(start) : (startReal?.url ?? pastedUrl ?? ""));
   const [wants, setWants] = useState(start ? PRESETS[start].wants : (startReal?.wants ?? ""));
   const [busy, setBusy] = useState<"draft" | "hold" | null>(null);
   const [error, setError] = useState<string | null>(null);

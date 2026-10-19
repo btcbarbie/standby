@@ -72,7 +72,7 @@ export default async function TixoraEvent({ params }: PageProps<"/store/tixora/e
           <section>
             <div className="flex items-baseline justify-between">
               <h2 className="text-lg font-semibold">{available.length} tickets listed</h2>
-              <span className="text-xs text-white/50">Prices per ticket. A service fee is added at checkout.</span>
+              <span className="text-xs text-white/50">Prices per ticket. A service fee is added at checkout. PayPal accepted.</span>
             </div>
             <ul className="mt-3 divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10">
               {available.map((o) => (

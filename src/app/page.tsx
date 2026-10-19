@@ -2,6 +2,7 @@ import Link from "next/link";
 import Character, { CAST, type Who } from "@/components/Character";
 import { Logo } from "@/components/ui";
 import { scoutProvider } from "@/lib/ai";
+import StoryBoard from "@/components/StoryBoard";
 
 export const dynamic = "force-dynamic";
 
@@ -36,13 +37,19 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className="mx-auto max-w-6xl px-4 pb-16 pt-12 lg:pb-20 lg:pt-20">
-          <p className="inline-flex items-center gap-2 rounded-full bg-scout-soft px-3 py-1 text-xs font-semibold text-[#9a5d00]">
-            <span className="h-1.5 w-1.5 rounded-full bg-scout" /> AI that buys for you, with a second opinion
-          </p>
-          <h1 className="mt-6 text-5xl font-semibold leading-[1.04] tracking-tight sm:text-6xl lg:text-[88px]">
-            Say exactly what you want. <span className="text-muted">It waits.</span> Two checks decide.
-          </h1>
+        <section className="mx-auto max-w-6xl px-4 pb-16 pt-10 lg:pb-20 lg:pt-14">
+          <div className="text-center">
+            <p className="inline-flex items-center gap-2 rounded-full bg-scout-soft px-3 py-1 text-xs font-semibold text-[#9a5d00]">
+              <span className="h-1.5 w-1.5 rounded-full bg-scout" /> AI that buys for you, with a second opinion
+            </p>
+            <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">
+              Say exactly what you want.
+              <br className="hidden sm:block" /> <span className="text-muted">It waits.</span> Two checks decide.
+            </h1>
+          </div>
+          <div className="mt-10">
+            <StoryBoard scoutMaker={twoCompanies ? "Gemini" : "Claude"} />
+          </div>
         </section>
 
         <section className="border-y border-line bg-bg">
