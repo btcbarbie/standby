@@ -86,12 +86,10 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
 
     // Options you didn't tick aren't even looked at (the Vault checks it again before anything happens).
     const picked: string[] | null = m.options ? JSON.parse(m.options) : null;
-    const allowedListings: string[] | null = m.mustMatch ? JSON.parse(m.mustMatch) : null;
     const candidates = page.offers
       // Seller is a Vault rule, not a filter, so the Vault can show why another seller's offer was refused.
       .filter((o) => o.inStock)
       .filter((o) => !picked || picked.includes(o.name))
-      .filter((o) => !allowedListings || allowedListings.some((a) => o.name.toLowerCase().includes(a.toLowerCase())))
       .filter((o) => o.priceCents * m.quantity <= m.maxTotalCents)
       .filter((o) => !seenKeys.has(`${o.id}:${o.priceCents}`))
       .sort((a, b) => a.priceCents - b.priceCents);
@@ -172,15 +170,6 @@ async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; cr
 }
 
 async function buy(m: Mandate, decisionId: string, offerId: string, quantity: number, vault: VaultResult, outcome: "BOUGHT" | "APPROVED") {
-  // Last line before money moves: only this decision may be paying for this watch.
-  const others = await prisma.decision.count({
-    where: { mandateId: m.id, id: { not: decisionId }, outcome: { in: ["BUYING", "BOUGHT", "APPROVED", "YOU_BOUGHT"] } },
-  });
-  if (others > 0 || !vault.pass || vault.totalCents == null || (m.heldCents != null && vault.totalCents > m.heldCents)) {
-    await prisma.decision.update({ where: { id: decisionId }, data: { outcome: "BLOCKED", reason: "Stopped at the last check before paying.", decidedAt: new Date() } });
-    return;
-  }
-  await prisma.decision.update({ where: { id: decisionId }, data: { outcome: "BUYING" } });
   try {
     const cap = await captureHold(m.paypalAuthorizationId!, vault.totalCents!, decisionId);
     await placeOrder(offerId, quantity, vault.totalCents!, m.id, cap.captureId);
@@ -206,7 +195,6 @@ export async function decide(ownerId: string, decisionId: string, approve: boole
   if (!d || d.mandate.ownerId !== ownerId) throw new Error("Not found.");
   if (d.outcome !== "NEEDS_YOU") throw new Error("This one is already decided.");
   const m = d.mandate;
-  if (m.status !== "NEEDS_YOU") throw new Error("This watch isn't waiting for you any more.");
 
   if (!approve) {
     await prisma.decision.update({ where: { id: d.id }, data: { outcome: "DENIED", reason: "You said no.", decidedBy: "you", decidedAt: new Date() } });
@@ -238,7 +226,6 @@ export async function foundAction(ownerId: string, decisionId: string, action: "
   const d = await prisma.decision.findUnique({ where: { id: decisionId }, include: { mandate: true } });
   if (!d || d.mandate.ownerId !== ownerId) throw new Error("Not found.");
   if (d.outcome !== "FOUND") throw new Error("This one is already settled.");
-  if (d.mandate.status !== "FOUND") throw new Error("This watch has moved on.");
   if (action === "bought") {
     await prisma.decision.update({ where: { id: d.id }, data: { outcome: "YOU_BOUGHT", reason: "You bought it yourself.", decidedBy: "you", decidedAt: new Date() } });
     await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "BOUGHT", lastNote: "You bought it yourself. Watch finished." } });
@@ -246,24 +233,6 @@ export async function foundAction(ownerId: string, decisionId: string, action: "
     await prisma.decision.update({ where: { id: d.id }, data: { outcome: "PASSED", reason: "You passed on it.", decidedBy: "you", decidedAt: new Date() } });
     await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "WATCHING", lastNote: "You passed on it. Still watching." } });
   }
-}
-
-// Alert mode, before you're sent to PayPal: the Vault runs again on the store's price right now.
-// You only ever approve the current total, and only if it's still inside your mandate.
-export async function prepareAlertPayment(ownerId: string, decisionId: string) {
-  const d = await prisma.decision.findUnique({ where: { id: decisionId }, include: { mandate: { include: { owner: true } } } });
-  if (!d || d.mandate.ownerId !== ownerId) throw new Error("Not found.");
-  if (d.outcome !== "FOUND" || d.mandate.status !== "FOUND") throw new Error("This one can't be paid any more.");
-  if (!d.mandate.isDemo) throw new Error("Real stores are paid on their own checkout.");
-  const scout: ScoutLook = JSON.parse(d.scout);
-  const vault = await runVault(d.mandate.owner, d.mandate, d.offerId, scout.quantity, JSON.parse(d.snapshot));
-  if (!vault.pass || vault.totalCents == null) {
-    await prisma.decision.update({ where: { id: d.id }, data: { outcome: "BLOCKED", reason: vault.line, vault: JSON.stringify(vault), decidedAt: new Date() } });
-    await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "WATCHING", lastNote: "It changed since it was found, so the Vault blocked it. Still watching." } });
-    throw new Error(`It changed since it was found: ${vault.line}`);
-  }
-  await prisma.decision.update({ where: { id: d.id }, data: { totalCents: vault.totalCents, vault: JSON.stringify(vault) } });
-  return { decision: d, amountCents: vault.totalCents };
 }
 
 // Alert mode on a store that takes PayPal: you approve this one payment yourself, then it's captured.
@@ -291,7 +260,7 @@ export async function endWatch(m: Mandate, text: string) {
   if (m.paypalAuthorizationId && m.status !== "BOUGHT") {
     await releaseHold(m.paypalAuthorizationId).catch(() => {});
   }
-  await prisma.mandate.update({ where: { id: m.id }, data: { status: "ENDED", lastNote: text, lastCheckedAt: new Date(), paypalAuthorizationId: null, heldCents: null } });
+  await prisma.mandate.update({ where: { id: m.id }, data: { status: "ENDED", lastNote: text, lastCheckedAt: new Date() } });
 }
 
 // ---------- Sealed record: each decision carries a hash of the one before it ----------

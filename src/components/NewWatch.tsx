@@ -79,7 +79,6 @@ export default function NewWatch({
   const [title, setTitle] = useState("");
   const [mustHave, setMustHave] = useState<Check[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
-  const [mustMatch, setMustMatch] = useState<string[]>([]);
   const [maxTotal, setMaxTotal] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [days, setDays] = useState("14");
@@ -110,7 +109,6 @@ export default function NewWatch({
       setDraft(d);
       setTitle(d.title);
       setMustHave(d.mustHave);
-      setMustMatch(json.item.pickable ? [] : d.listingMustInclude);
       setPicked(json.item.pickable ? d.matchingOptionIds.filter((id: string) => json.item.choices.some((c: { id: string }) => c.id === id)) : []);
       setMaxTotal(d.maxTotalUsd ? String(d.maxTotalUsd) : "");
       setQuantity(String(d.quantity ?? 1));
@@ -131,7 +129,7 @@ export default function NewWatch({
       const res = await fetch("/api/watches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: item!.url, wants, title, mustHave: mustHave.map((m) => m.text), optionIds: picked, mustMatch, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode }),
+        body: JSON.stringify({ url: item!.url, wants, title, mustHave: mustHave.map((m) => m.text), optionIds: picked, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
@@ -270,29 +268,9 @@ export default function NewWatch({
               </div>
             )}
             {!item.pickable && (
-              <div className="mt-5">
-                <div className="text-sm font-semibold">3. Only these listings</div>
-                <p className="mt-0.5 text-xs text-muted">
-                  Listings come and go, so instead of ticking one, confirm which names are acceptable. The Vault checks every listing against this list in code, whatever the AIs
-                  say.
-                </p>
-                {mustMatch.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {mustMatch.map((t) => (
-                      <span key={t} className="inline-flex items-center gap-1 rounded-full border border-ink bg-bg px-2.5 py-1 text-xs font-medium">
-                        {t}
-                        <button aria-label={`Remove ${t}`} onClick={() => setMustMatch(mustMatch.filter((x) => x !== t))} className="text-muted hover:text-bad">
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-2 rounded-xl bg-warn-soft px-3 py-2 text-xs text-warn">
-                    No listing names to lock onto, so only the AIs judge which listings fit. Be specific in your words (like a section or wing) to get a code-checked list.
-                  </p>
-                )}
-              </div>
+              <p className="mt-4 rounded-xl bg-bg px-3 py-2 text-xs text-muted">
+                Ticket listings come and go, so there&apos;s nothing to tick. Scout, the Banker and the Vault check every new listing against your words.
+              </p>
             )}
 
             <div className="mt-6 text-sm font-semibold">{item.pickable ? "4." : "3."} Check the order</div>

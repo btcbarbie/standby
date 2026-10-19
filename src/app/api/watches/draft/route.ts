@@ -7,7 +7,6 @@ import { fail, storePath } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { assertPublicUrl } from "@/lib/safeFetch";
 import { rememberDraft } from "@/lib/draftCache";
-import { allow, clientIp, LIMITS } from "@/lib/rateLimit";
 
 // Step 1 of a new watch: read the page once, lock onto the item, and turn the owner's words into a checklist.
 // Works with the demo stores and with real store pages (watch-and-alert only).
@@ -16,9 +15,6 @@ export async function POST(req: NextRequest) {
   if (!owner) return fail("Open the demo first.", 401);
   const { url, wants } = await req.json();
   if (!String(wants ?? "").trim()) return fail("Tell Standby what you want, in your own words.");
-  const a = allow(`draft:${owner.id}`, LIMITS.draftsPerOwnerHour, 3_600_000);
-  const b = a.ok ? allow(`draft-ip:${clientIp(req)}`, LIMITS.draftsPerIpHour, 3_600_000) : a;
-  if (!a.ok || !b.ok) return fail(`That's a lot of new watches for one hour. Try again in about ${Math.max(a.retryInMin, b.retryInMin)} min.`, 429);
 
   try {
     let page: PageData;

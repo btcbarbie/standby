@@ -6,7 +6,6 @@ import { paypalConfigured } from "@/lib/paypal";
 import { startHold } from "@/lib/holds";
 import { fail, publicOrigin, storePath } from "@/lib/http";
 import { recallDraft } from "@/lib/draftCache";
-import { LIMITS } from "@/lib/rateLimit";
 
 // Step 2: the owner confirms the checklist and picks a mode.
 //   ALERT: Standby watches and tells you when it matches; you pay. No PayPal needed to start.
@@ -21,9 +20,6 @@ export async function POST(req: NextRequest) {
   // The item is locked from the page Standby read while drafting, never from what the browser sends back.
   const page = recallDraft(owner.id, url);
   if (!page) return fail("Please draft the checklist again; the page read has expired.");
-
-  const active = await prisma.mandate.count({ where: { ownerId: owner.id, status: { in: ["SETUP", "WATCHING", "NEEDS_YOU", "FOUND"] } } });
-  if (active >= LIMITS.activeWatchesPerOwner) return fail(`You can run ${LIMITS.activeWatchesPerOwner} watches at once in this demo. End one to start another.`, 429);
 
   const mode = body.mode === "BUY" ? "BUY" : "ALERT";
   if (mode === "BUY" && !page.isDemo) return fail("This store doesn't accept AI buyers yet, so Standby can only watch and alert you.");
@@ -50,11 +46,6 @@ export async function POST(req: NextRequest) {
   if (page.kind !== "TICKET" && Array.isArray(body.optionIds) && body.optionIds.length > 0 && (!picked || picked.length === 0)) {
     return fail("The options you picked aren't on the page any more. Please draft again.");
   }
-  // For listings that come and go: the names the owner confirmed, enforced in code by the Vault.
-  const mustMatch =
-    page.kind === "TICKET" && Array.isArray(body.mustMatch)
-      ? [...new Set(body.mustMatch.map((x: unknown) => String(x).trim()).filter((x: string) => x.length > 0 && x.length <= 40))].slice(0, 60)
-      : [];
   const mandate = await prisma.mandate.create({
     data: {
       ownerId: owner.id,
@@ -66,7 +57,6 @@ export async function POST(req: NextRequest) {
       itemName: page.name,
       sellerName,
       options: picked ? JSON.stringify(picked) : null,
-      mustMatch: mustMatch.length ? JSON.stringify(mustMatch) : null,
       kind: page.kind,
       quantity,
       maxTotalCents,
