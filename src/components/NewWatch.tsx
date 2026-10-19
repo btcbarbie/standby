@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Character from "./Character";
 import { AppHeader, Button, Card } from "./ui";
 import type { Draft } from "@/lib/ai";
+import OptionPicker, { type Choice } from "./OptionPicker";
 
 type Item = {
   url: string;
@@ -101,6 +102,20 @@ export default function NewWatch({
   }, [url]);
   const shownPreview = preview && preview.forUrl === url.trim() ? preview : null;
 
+  // Your taps on the options Scout found. The sentence they write fills the box below, unless you've typed your own.
+  const [picks, setPicks] = useState<{ forUrl: string; ids: string[] } | null>(null);
+  const [lastAuto, setLastAuto] = useState("");
+  const pickedIds = picks && picks.forUrl === url.trim() ? picks.ids : [];
+  function onPick(ids: string[], sentence: string) {
+    setPicks({ forUrl: url.trim(), ids });
+    setDraft(null);
+    if (wants.trim() === "" || wants === lastAuto) {
+      setWants(sentence);
+      setLastAuto(sentence);
+    }
+  }
+  const choices = shownPreview?.data?.pickable ? (shownPreview.data.choices ?? []) : [];
+
   // Editable checklist
   const [title, setTitle] = useState("");
   const [mustHave, setMustHave] = useState<Check[]>([]);
@@ -127,7 +142,7 @@ export default function NewWatch({
     setBusy("draft");
     setError(null);
     try {
-      const res = await fetch("/api/watches/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, wants }) });
+      const res = await fetch("/api/watches/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, wants, optionIds: pickedIds }) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       const d: Draft = json.draft;
@@ -225,8 +240,12 @@ export default function NewWatch({
             ))}
           </div>
 
-          <label className="mt-6 block text-sm font-semibold" htmlFor="wants">
-            2. What you want, exactly
+          <div className="mt-6 text-sm font-semibold">2. What you want, exactly</div>
+          {choices.length > 0 && shownPreview?.data && (
+            <OptionPicker key={shownPreview.data.url} productName={shownPreview.data.name} choices={choices} onChange={onPick} />
+          )}
+          <label className={`block text-sm ${choices.length > 0 ? "mt-3 font-medium text-muted" : "sr-only"}`} htmlFor="wants">
+            {choices.length > 0 ? "Scout writes it as you tap. Edit it, or describe it in your own words:" : "What you want, exactly"}
           </label>
           <textarea
             id="wants"
@@ -489,6 +508,8 @@ type Preview = {
   inStock: number;
   priceRange: [number, number] | null;
   acceptsPayPal: boolean;
+  pickable?: boolean;
+  choices?: Choice[];
 };
 
 const dollars = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;

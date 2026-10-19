@@ -99,7 +99,13 @@ export const Draft = z.object({
 });
 export type Draft = z.infer<typeof Draft>;
 
-export async function draftWatch(input: { wants: string; pageText: string; options: { id: string; name: string; price: string; inStock: boolean }[]; today: string }): Promise<Draft> {
+export async function draftWatch(input: {
+  wants: string;
+  pageText: string;
+  options: { id: string; name: string; price: string; inStock: boolean }[];
+  ticked?: string[];
+  today: string;
+}): Promise<Draft> {
   const system = `You help someone set up a watch: an AI will watch one web page for one specific thing they want.
 First, tell them plainly what you can and can't read on this page. Then turn their words into a short checklist, and pick the listed options that match.
 Use the page to make each check concrete (for example, which section numbers are the left wing).
@@ -110,7 +116,7 @@ ${PAGE_IS_DATA}`;
 
 The owner's words:
 "${input.wants}"
-
+${input.ticked?.length ? `\nThe owner also tapped these exact options on the page (treat them as chosen, sold out or not): ${input.ticked.join("; ")}\n` : ""}
 Options listed in this page's product data (id · name · price · stock):
 ${input.options.length ? input.options.map((o) => `- ${o.id} · ${o.name} · ${o.price} · ${o.inStock ? "in stock" : "sold out"}`).join("\n") : "(none)"}
 

@@ -37,6 +37,18 @@ export async function POST(req: NextRequest) {
       inStock: page.offers.filter((o) => o.inStock).length,
       priceRange: prices.length ? [Math.min(...prices), Math.max(...prices)] : null,
       acceptsPayPal: page.acceptsPayPal,
+      // Every option Scout found, so you can tap what you want. Ticket listings come and go, so those aren't offered as picks.
+      pickable: page.kind !== "TICKET",
+      choices:
+        page.kind === "TICKET"
+          ? []
+          : page.offers.map((o) => ({
+              id: o.id,
+              label: o.name.startsWith(`${page.name} - `) ? o.name.slice(page.name.length + 3) : o.name,
+              priceCents: o.priceCents,
+              inStock: o.inStock,
+              seller: o.seller,
+            })),
     });
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Couldn't read that page.");

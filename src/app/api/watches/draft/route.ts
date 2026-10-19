@@ -13,7 +13,7 @@ import { recallDraft, rememberDraft } from "@/lib/draftCache";
 export async function POST(req: NextRequest) {
   const owner = await currentOwner();
   if (!owner) return fail("Open the demo first.", 401);
-  const { url, wants } = await req.json();
+  const { url, wants, optionIds } = await req.json();
   if (!String(wants ?? "").trim()) return fail("Tell Standby what you want, in your own words.");
 
   try {
@@ -37,12 +37,16 @@ export async function POST(req: NextRequest) {
     // Sizes and colours are stable choices you can tick. Resale ticket listings come and go, so those aren't pickable.
     const pickable = page.kind !== "TICKET";
     const options = page.offers.map((o) => ({ id: o.id, name: o.name, priceCents: o.priceCents, inStock: o.inStock, seller: o.seller }));
+    // Options you tapped on the preview are your choice; the AI doesn't get to change them.
+    const tapped = pickable && Array.isArray(optionIds) ? options.filter((o) => optionIds.includes(o.id)) : [];
     const draft = await draftWatch({
       wants: String(wants),
       pageText: page.text,
       options: pickable ? options.map((o) => ({ id: o.id, name: o.name, price: `$${(o.priceCents / 100).toFixed(2)}`, inStock: o.inStock })) : [],
+      ticked: tapped.map((o) => o.name),
       today: new Date().toISOString().slice(0, 10),
     });
+    if (tapped.length) draft.matchingOptionIds = tapped.map((o) => o.id);
     return NextResponse.json({
       draft,
       item: {
