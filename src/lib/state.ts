@@ -34,6 +34,7 @@ export async function loadState(ownerId: string, watchId?: string | null) {
     maxTotalCents: m.maxTotalCents,
     quantity: m.quantity,
     expiresAt: m.expiresAt.toISOString(),
+    notBefore: m.notBefore?.toISOString() ?? null,
     createdAt: m.createdAt.toISOString(),
     lastCheckedAt: m.lastCheckedAt?.toISOString() ?? null,
     lastNote: m.lastNote,

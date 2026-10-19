@@ -221,6 +221,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                 <Row k="Seller" v={d.sellerName ? `${d.sellerName} only` : "Any seller"} />
                 <Row k="Quantity" v={String(w.quantity)} />
                 <Row k="Most in total" v={money(w.maxTotalCents)} />
+                {w.notBefore && <Row k="Starts" v={new Date(w.notBefore).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} />}
                 <Row k="Watch until" v={shortDate(w.expiresAt)} />
                 <Row k="Speed limit" v="3 buys / 10 min" />
                 <Row k="Daily limit" v="$500" />

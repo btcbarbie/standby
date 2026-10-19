@@ -36,6 +36,7 @@ export async function runVault(owner: Owner, m: Mandate, offerId: string, quanti
 
   add("on", "Watching is switched on", !owner.stopped && m.status !== "PAUSED", owner.stopped ? "Stop all is on." : "Yes.");
   add("deadline", "Before the deadline", new Date() < m.expiresAt, `Watch ends ${m.expiresAt.toDateString()}.`);
+  if (m.notBefore) add("notBefore", "Not before the time you set", new Date() >= m.notBefore, `Starts ${m.notBefore.toUTCString().replace(" GMT", " UTC")}.`);
 
   if (!q) {
     add("item", "Same item you chose", false, "The store no longer has this offer.");

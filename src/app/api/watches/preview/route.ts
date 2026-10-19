@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       inStock: page.offers.filter((o) => o.inStock).length,
       priceRange: prices.length ? [Math.min(...prices), Math.max(...prices)] : null,
       acceptsPayPal: page.acceptsPayPal,
+      siblings: page.siblings,
       // Every option Scout found, so you can tap what you want. Ticket listings come and go, so those aren't offered as picks.
       pickable: page.kind !== "TICKET",
       choices:

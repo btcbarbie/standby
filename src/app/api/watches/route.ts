@@ -27,10 +27,18 @@ export async function POST(req: NextRequest) {
   const maxTotalCents = Math.round(Number(body.maxTotalUsd) * 100);
   const quantity = Math.round(Number(body.quantity));
   const days = Math.round(Number(body.expiresInDays));
+  // Optional start time for drops and launches (sent as an ISO time from the browser).
+  const notBefore = body.notBefore ? new Date(String(body.notBefore)) : null;
+  if (notBefore && (Number.isNaN(notBefore.getTime()) || notBefore.getTime() < Date.now() - 60_000)) return fail("Pick a start time in the future.");
+  if (notBefore && notBefore.getTime() > Date.now() + 28 * 86_400_000) return fail("Pick a start time within the next four weeks.");
   const mustHave = Array.isArray(body.mustHave) ? body.mustHave.map(String).filter(Boolean).slice(0, 8) : [];
   if (!(maxTotalCents >= 100 && maxTotalCents <= 100000)) return fail("Set a limit between $1 and $1,000.");
   if (!(quantity >= 1 && quantity <= 4)) return fail("Quantity must be between 1 and 4.");
   if (!(days >= 1 && days <= 29)) return fail("Watch for 1 to 29 days. A PayPal hold lasts 29 days at most.");
+  // A PayPal hold lasts 29 days, so a Buy-for-me watch must finish inside that.
+  if (mode === "BUY" && notBefore && (notBefore.getTime() - Date.now()) / 86_400_000 + days > 29) {
+    return fail("With Buy it for me, the start time plus the watch days must fit inside 29 days (how long a PayPal hold lasts).");
+  }
   if (mode === "BUY" && !paypalConfigured()) return fail("PayPal isn't connected yet, so Buy for me can't start. Alert me works without it.", 503);
 
   if (page.isDemo) {
@@ -61,7 +69,9 @@ export async function POST(req: NextRequest) {
       kind: page.kind,
       quantity,
       maxTotalCents,
-      expiresAt: new Date(Date.now() + days * 86_400_000),
+      // A timed watch runs for its days from the start time.
+      expiresAt: new Date((notBefore?.getTime() ?? Date.now()) + days * 86_400_000),
+      notBefore,
       days,
       mode,
       isDemo: page.isDemo,

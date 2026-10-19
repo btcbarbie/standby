@@ -37,6 +37,11 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
       await pauseWatch(m, "DEADLINE", `Time's up: nothing matched before your deadline.${m.mode === "BUY" ? " Hold released." : ""} Reactivate to keep watching.`);
       return;
     }
+    // Timed watches (drops, launches): no visits at all until the chosen moment, then straight in.
+    if (m.notBefore && new Date() < m.notBefore) {
+      if (!m.lastNote?.startsWith("Waiting until")) await note(m.id, `Waiting until ${m.notBefore.toUTCString().replace(" GMT", " UTC")} to start.`);
+      return;
+    }
     // Visit-limited: a watch can only visit the store so many times.
     if (m.visits >= m.maxVisits) {
       await pauseWatch(m, "VISIT_LIMIT", `Visit limit reached (${m.maxVisits} visits).${m.mode === "BUY" ? " Hold released." : ""} Reactivate to keep watching.`);

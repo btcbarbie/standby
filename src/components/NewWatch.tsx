@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Character from "./Character";
 import { AppHeader, Button, Card } from "./ui";
 import type { Draft } from "@/lib/ai";
-import OptionPicker, { type Choice } from "./OptionPicker";
+import WatchPlanner, { type Choice, type Plan, type Sibling } from "./WatchPlanner";
 
 type Item = {
   url: string;
@@ -103,15 +103,16 @@ export default function NewWatch({
   const shownPreview = preview && preview.forUrl === url.trim() ? preview : null;
 
   // Your taps on the options Scout found. The sentence they write fills the box below, unless you've typed your own.
-  const [picks, setPicks] = useState<{ forUrl: string; ids: string[] } | null>(null);
+  const [picks, setPicks] = useState<{ forUrl: string; ids: string[]; notBefore: string | null } | null>(null);
   const [lastAuto, setLastAuto] = useState("");
   const pickedIds = picks && picks.forUrl === url.trim() ? picks.ids : [];
-  function onPick(ids: string[], sentence: string) {
-    setPicks({ forUrl: url.trim(), ids });
+  const notBefore = picks && picks.forUrl === url.trim() ? picks.notBefore : null;
+  function onPlan(plan: Plan) {
+    setPicks({ forUrl: url.trim(), ids: plan.ids, notBefore: plan.notBefore });
     setDraft(null);
     if (wants.trim() === "" || wants === lastAuto) {
-      setWants(sentence);
-      setLastAuto(sentence);
+      setWants(plan.sentence);
+      setLastAuto(plan.sentence);
     }
   }
   const choices = shownPreview?.data?.pickable ? (shownPreview.data.choices ?? []) : [];
@@ -129,12 +130,14 @@ export default function NewWatch({
   function fill(kind: "ticket" | "dress") {
     setUrl(linkFor(kind));
     setWants(PRESETS[kind].wants);
+    setLastAuto(PRESETS[kind].wants);
     setDraft(null);
   }
 
   function fillReal(r: (typeof REAL)[number]) {
     setUrl(r.url);
     setWants(r.wants);
+    setLastAuto(r.wants);
     setDraft(null);
   }
 
@@ -170,7 +173,7 @@ export default function NewWatch({
       const res = await fetch("/api/watches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: item!.url, wants, title, mustHave: mustHave.map((m) => m.text), optionIds: picked, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode }),
+        body: JSON.stringify({ url: item!.url, wants, title, mustHave: mustHave.map((m) => m.text), optionIds: picked, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode, notBefore }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
@@ -241,11 +244,25 @@ export default function NewWatch({
           </div>
 
           <div className="mt-6 text-sm font-semibold">2. What you want, exactly</div>
-          {choices.length > 0 && shownPreview?.data && (
-            <OptionPicker key={shownPreview.data.url} productName={shownPreview.data.name} choices={choices} onChange={onPick} />
+          {shownPreview?.data && shownPreview.data.acceptsPayPal && (
+            <WatchPlanner
+              key={shownPreview.data.url}
+              productName={shownPreview.data.name}
+              canBuy={shownPreview.data.isDemo}
+              priceCents={shownPreview.data.priceRange ? shownPreview.data.priceRange[0] : null}
+              choices={choices}
+              siblings={shownPreview.data.siblings ?? []}
+              onChange={onPlan}
+              onSwitchLink={(next) => {
+                setUrl(next);
+                setDraft(null);
+                setWants("");
+                setLastAuto("");
+              }}
+            />
           )}
-          <label className={`block text-sm ${choices.length > 0 ? "mt-3 font-medium text-muted" : "sr-only"}`} htmlFor="wants">
-            {choices.length > 0 ? "Scout writes it as you tap. Edit it, or describe it in your own words:" : "What you want, exactly"}
+          <label className={`block text-sm ${shownPreview?.data ? "mt-3 font-medium text-muted" : "sr-only"}`} htmlFor="wants">
+            {shownPreview?.data ? "Scout writes it as you choose. Edit it, or describe it in your own words:" : "What you want, exactly"}
           </label>
           <textarea
             id="wants"
@@ -435,6 +452,11 @@ export default function NewWatch({
                       </p>
                     </>
                   )}
+                  {notBefore && (
+                    <p className="mt-2 font-medium text-brand">
+                      Scout stays quiet until {new Date(notBefore).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}, then starts.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -510,6 +532,7 @@ type Preview = {
   acceptsPayPal: boolean;
   pickable?: boolean;
   choices?: Choice[];
+  siblings?: Sibling[];
 };
 
 const dollars = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;

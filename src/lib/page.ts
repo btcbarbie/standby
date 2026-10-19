@@ -25,7 +25,37 @@ export type PageData = {
   acceptsPayPal: boolean;
   // The product photo, for previews. Only https links; null if the page has none.
   image: string | null;
+  // Other versions of this product the page links to (usually other colours), each its own page.
+  siblings: { url: string; label: string }[];
 };
+
+// Other colours usually live on their own product pages with a similar address
+// (".../womens-runner-nz-slip-on-mushroom" → "...-dark-navy"). Stores mention them on the page for their colour swatches.
+function siblingPages(html: string, pageUrl: string): { url: string; label: string }[] {
+  const u = new URL(pageUrl);
+  const m = u.pathname.match(/^(.*\/products\/)([a-z0-9-]+)\/?$/i);
+  if (!m) return [];
+  const [, base, handle] = m;
+  const words = handle.split("-");
+  // Closest match first ("mens-tree-runners" → "mens-tree-runners-jet-black"), never fewer than three words in common.
+  for (let cut = 0; cut <= 3 && words.length - cut >= 3; cut++) {
+    const prefix = words.slice(0, words.length - cut).join("-");
+    const found = [...new Set(html.match(new RegExp(`\\b${prefix}-[a-z0-9-]+`, "gi")) ?? [])]
+      .map((h) => h.toLowerCase())
+      .filter((h) => h !== handle && !h.endsWith("-") && h.length < 120);
+    if (found.length) {
+      const known = new Set(words);
+      return found
+        .map((h) => {
+          const rest = h.slice(prefix.length + 1).split("-").filter((w) => !known.has(w) && !/^(ss|aw|fw|sp|su|fa)\d{2}$/i.test(w));
+          return { url: `${u.origin}${base}${h}`, label: rest.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") };
+        })
+        .filter((s, i, all) => s.label && all.findIndex((x) => x.label === s.label) === i)
+        .slice(0, 10);
+    }
+  }
+  return [];
+}
 
 function mentionsPayPal(html: string) {
   return /paypal/i.test(html);
@@ -124,6 +154,7 @@ export function parseDemoPage(url: string, html: string): PageData {
     storeName: url.includes("/tixora/") ? "Tixora" : "Wren",
     acceptsPayPal: mentionsPayPal(html),
     image: null,
+    siblings: [],
   };
 }
 
@@ -235,6 +266,7 @@ export function parseRealPage(url: string, html: string): PageData {
     storeName: host,
     acceptsPayPal: mentionsPayPal(html),
     image: pickImage(product.image ?? variants[0]?.image, html, url),
+    siblings: siblingPages(html, url),
   };
 }
 

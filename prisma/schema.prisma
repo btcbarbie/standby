@@ -49,6 +49,8 @@ model Mandate {
   quantity     Int      @default(1)
   maxTotalCents Int
   expiresAt    DateTime
+  // For drops and launches: don't visit or buy before this moment.
+  notBefore    DateTime?
 
   days         Int      @default(14)
   // ALERT: tell me when it matches and I'll pay. BUY: pre-approved, pay as soon as every check passes.
