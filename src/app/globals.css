@@ -21,6 +21,9 @@
   --warn-soft: #fef0c7;
   --bad: #b42318;
   --bad-soft: #fee4e2;
+  --midnight: #0b1020;
+  --midnight-2: #141b30;
+  --midnight-line: #232c45;
 }
 
 @theme inline {
@@ -43,6 +46,9 @@
   --color-warn-soft: var(--warn-soft);
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
+  --color-midnight: var(--midnight);
+  --color-midnight-2: var(--midnight-2);
+  --color-midnight-line: var(--midnight-line);
   --font-sans: var(--nf-sans), system-ui, sans-serif;
   --font-display: var(--nf-display), Georgia, serif;
 }
@@ -52,6 +58,20 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   font-feature-settings: "cv11", "ss01";
+}
+
+/* Visible keyboard focus everywhere; mouse clicks stay clean. */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
 .tabular {
