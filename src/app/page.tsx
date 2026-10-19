@@ -94,29 +94,6 @@ export default function Landing() {
           </ol>
         </section>
 
-        <section id="safety" className="bg-ink text-white">
-          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-2">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">What Standby can never do</h2>
-              <p className="mt-3 max-w-md text-white/70">
-                These are enforced in code by the Vault, not left to the AI&apos;s judgement. The AIs check meaning. The code checks numbers.
-              </p>
-              <div className="mt-6 flex items-center gap-3">
-                <Character who="vault" mood="stern" size={64} />
-                <p className="text-sm text-white/70">“I don&apos;t read web pages. I can&apos;t be talked into anything.”</p>
-              </div>
-            </div>
-            <ul className="space-y-3">
-              {NEVER.map((n) => (
-                <li key={n} className="flex items-start gap-3 rounded-xl bg-white/5 px-4 py-3">
-                  <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-bad text-xs font-bold">✕</span>
-                  <span>{n}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
         <section className="mx-auto max-w-6xl px-4 pt-16">
           <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-center">
             <div>
@@ -155,6 +132,29 @@ export default function Landing() {
             <Link href="/start?next=/app" className="justify-self-start rounded-xl bg-ink px-5 py-3 text-sm font-semibold text-white hover:bg-black">
               Try the demo
             </Link>
+          </div>
+        </section>
+
+        <section id="safety" className="bg-ink text-white">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 lg:grid-cols-2">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">What Standby can never do</h2>
+              <p className="mt-3 max-w-md text-white/70">
+                These are enforced in code by the Vault, not left to the AI&apos;s judgement. The AIs check meaning. The code checks numbers.
+              </p>
+              <div className="mt-6 flex items-center gap-3">
+                <Character who="vault" mood="stern" size={64} />
+                <p className="text-sm text-white/70">“I don&apos;t read web pages. I can&apos;t be talked into anything.”</p>
+              </div>
+            </div>
+            <ul className="space-y-3">
+              {NEVER.map((n) => (
+                <li key={n} className="flex items-start gap-3 rounded-xl bg-white/5 px-4 py-3">
+                  <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-bad text-xs font-bold">✕</span>
+                  <span>{n}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
       </main>
