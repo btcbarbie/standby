@@ -13,7 +13,7 @@ import { recallDraft, rememberDraft } from "@/lib/draftCache";
 export async function POST(req: NextRequest) {
   const owner = await currentOwner();
   if (!owner) return fail("Open the demo first.", 401);
-  const { url, wants, optionIds } = await req.json();
+  const { url, wants, optionIds, now, tzOffset } = await req.json();
   if (!String(wants ?? "").trim()) return fail("Tell Standby what you want, in your own words.");
 
   try {
@@ -44,11 +44,24 @@ export async function POST(req: NextRequest) {
       pageText: page.text,
       options: pickable ? options.map((o) => ({ id: o.id, name: o.name, price: `$${(o.priceCents / 100).toFixed(2)}`, inStock: o.inStock })) : [],
       ticked: tapped.map((o) => o.name),
-      today: new Date().toISOString().slice(0, 10),
+      now: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(now)) ? String(now) : new Date().toISOString().slice(0, 16) + " UTC",
     });
     if (tapped.length) draft.matchingOptionIds = tapped.map((o) => o.id);
+    const notBefore = startMoment(draft.startAt, Number(tzOffset) || 0);
+
+    // Is what you asked for on sale right now, inside your budget? Then there's nothing to wait for:
+    // Standby is for what you can't get yet, so it points you to the store instead of starting a watch.
+    const qty = draft.quantity ?? 1;
+    const availableNow =
+      pickable && !notBefore
+        ? page.offers
+            .filter((o) => draft.matchingOptionIds.includes(o.id) && o.inStock && (draft.maxTotalUsd == null || (o.priceCents * qty) / 100 <= draft.maxTotalUsd))
+            .map((o) => ({ name: o.name, priceCents: o.priceCents, url: o.url ?? page.url }))
+        : [];
     return NextResponse.json({
       draft,
+      notBefore,
+      availableNow,
       item: {
         url: page.url,
         listingId: page.listingId,
@@ -71,4 +84,12 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return fail(e instanceof AiError || e instanceof Error ? e.message : "Couldn't read that page.");
   }
+}
+
+// "2026-10-23T09:00" in the owner's time zone → a moment, if it's in the next 28 days.
+function startMoment(local: string | null, tzOffsetMinutes: number): string | null {
+  const m = local?.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const at = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) + tzOffsetMinutes * 60_000;
+  return at > Date.now() && at < Date.now() + 28 * 86_400_000 ? new Date(at).toISOString() : null;
 }

@@ -91,6 +91,10 @@ export const Draft = z.object({
     .describe("Plain sentences telling the owner which of their wishes this page doesn't show, so Standby can't check them. E.g. 'This page doesn't show shipping costs, so I can't check \"under $5 shipping\".' Empty if none."),
   maxTotalUsd: z.number().nullable().describe("The most the owner will pay in total, fees included, in US dollars. Null if they didn't say."),
   quantity: z.number().int().nullable().describe("How many to buy. Null if they didn't say."),
+  startAt: z
+    .string()
+    .nullable()
+    .describe("If the owner wants Scout to start at a set time (a drop, a launch, a sale opening), that moment as YYYY-MM-DDTHH:MM in the owner's own time zone. Null otherwise."),
   expiresInDays: z.number().int().nullable().describe("How many days to keep watching, if the owner said or the page implies a deadline (like the day before an event). Null otherwise."),
   anySeller: z.boolean().describe("True if any seller of this exact item is fine (always true for resale tickets), false if it must be the store's own listing."),
   scoutLine: z
@@ -104,7 +108,7 @@ export async function draftWatch(input: {
   pageText: string;
   options: { id: string; name: string; price: string; inStock: boolean }[];
   ticked?: string[];
-  today: string;
+  now: string;
 }): Promise<Draft> {
   const system = `You help someone set up a watch: an AI will watch one web page for one specific thing they want.
 First, tell them plainly what you can and can't read on this page. Then turn their words into a short checklist, and pick the listed options that match.
@@ -112,7 +116,7 @@ Use the page to make each check concrete (for example, which section numbers are
 Be literal. Don't add wishes they didn't express, and don't drop any they did.
 Never assume the page shows something it doesn't. If a wish depends on information that isn't on this page, say so in plain words.
 ${PAGE_IS_DATA}`;
-  const text = `Today is ${input.today}.
+  const text = `It is now ${input.now} in the owner's time zone.
 
 The owner's words:
 "${input.wants}"

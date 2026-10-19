@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Character from "./Character";
 import { AppHeader, Button, Card } from "./ui";
 import type { Draft } from "@/lib/ai";
-import WatchPlanner, { type Choice, type Plan, type Sibling } from "./WatchPlanner";
+import type { Extracted } from "@/lib/extract";
 
 type Item = {
   url: string;
@@ -33,23 +33,10 @@ const SOURCE: Record<Check["source"], { label: string; cls: string; icon: string
 
 const usd = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;
 
-const PRESETS = {
-  ticket: { wants: "One ticket for the Nova Adé show, left wing only, under $40 including fees. Just one ticket, never more." },
-  dress: { wants: "The Ada wrap dress in green, size 8. Only from Wren itself, and no more than $70 with shipping." },
-};
-
 // Real stores whose robots.txt lets automated agents read product pages (and keeps them out of checkout).
 const REAL = [
-  {
-    label: "Allbirds · Tree Runner",
-    url: "https://www.allbirds.com/products/mens-tree-runners",
-    wants: "Men's Tree Runner in Jet Black with the white sole, size 8. Under $110. Just one pair.",
-  },
-  {
-    label: "Gymshark · Arrival shorts",
-    url: "https://www.gymshark.com/products/gymshark-arrival-5-shorts-black-ss22",
-    wants: "Arrival 5 inch shorts in black, size M. Under $30. One pair.",
-  },
+  { label: "Allbirds · Tree Runner", url: "https://www.allbirds.com/products/mens-tree-runners" },
+  { label: "Gymshark · Arrival shorts", url: "https://www.gymshark.com/products/gymshark-arrival-5-shorts-black-ss22" },
 ];
 
 export default function NewWatch({
@@ -72,7 +59,7 @@ export default function NewWatch({
     return link ? `${origin}${link}` : "";
   };
   const [url, setUrl] = useState(start ? linkFor(start) : (startReal?.url ?? pastedUrl ?? ""));
-  const [wants, setWants] = useState(start ? PRESETS[start].wants : (startReal?.wants ?? ""));
+  const [wants, setWants] = useState("");
   const [busy, setBusy] = useState<"draft" | "hold" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<Item | null>(null);
@@ -102,20 +89,7 @@ export default function NewWatch({
   }, [url]);
   const shownPreview = preview && preview.forUrl === url.trim() ? preview : null;
 
-  // Your taps on the options Scout found. The sentence they write fills the box below, unless you've typed your own.
-  const [picks, setPicks] = useState<{ forUrl: string; ids: string[]; notBefore: string | null } | null>(null);
-  const [lastAuto, setLastAuto] = useState("");
-  const pickedIds = picks && picks.forUrl === url.trim() ? picks.ids : [];
-  const notBefore = picks && picks.forUrl === url.trim() ? picks.notBefore : null;
-  function onPlan(plan: Plan) {
-    setPicks({ forUrl: url.trim(), ids: plan.ids, notBefore: plan.notBefore });
-    setDraft(null);
-    if (wants.trim() === "" || wants === lastAuto) {
-      setWants(plan.sentence);
-      setLastAuto(plan.sentence);
-    }
-  }
-  const choices = shownPreview?.data?.pickable ? (shownPreview.data.choices ?? []) : [];
+  const found = shownPreview?.data?.acceptsPayPal ? shownPreview.data : null;
 
   // Editable checklist
   const [title, setTitle] = useState("");
@@ -126,26 +100,22 @@ export default function NewWatch({
   const [days, setDays] = useState("14");
   const [anySeller, setAnySeller] = useState(false);
   const [mode, setMode] = useState<"ALERT" | "BUY">("ALERT");
+  const [notBefore, setNotBefore] = useState<string | null>(null);
+  const [availableNow, setAvailableNow] = useState<{ name: string; priceCents: number; url: string }[]>([]);
+  const [showAllOptions, setShowAllOptions] = useState(false);
 
-  function fill(kind: "ticket" | "dress") {
-    setUrl(linkFor(kind));
-    setWants(PRESETS[kind].wants);
-    setLastAuto(PRESETS[kind].wants);
+  function changeLink(next: string) {
+    setUrl(next);
+    setWants("");
     setDraft(null);
   }
 
-  function fillReal(r: (typeof REAL)[number]) {
-    setUrl(r.url);
-    setWants(r.wants);
-    setLastAuto(r.wants);
-    setDraft(null);
-  }
 
   async function makeDraft() {
     setBusy("draft");
     setError(null);
     try {
-      const res = await fetch("/api/watches/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, wants, optionIds: pickedIds }) });
+      const res = await fetch("/api/watches/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, wants, now: localNow(), tzOffset: new Date().getTimezoneOffset() }) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       const d: Draft = json.draft;
@@ -159,6 +129,9 @@ export default function NewWatch({
       setDays(String(Math.min(29, Math.max(1, d.expiresInDays ?? 14))));
       setAnySeller(json.item.storeSeller ? d.anySeller : true);
       setMode(json.item.acceptsAiBuyers ? "BUY" : "ALERT");
+      setNotBefore(json.notBefore ?? null);
+      setAvailableNow(json.availableNow ?? []);
+      setShowAllOptions(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -224,70 +197,109 @@ export default function NewWatch({
               <Character who="scout" mood="happy" size={18} /> Scout
             </span>
           </div>
-          {shownPreview && <PreviewCard p={shownPreview} />}
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <span className="py-1 text-muted">Demo links:</span>
-            <button onClick={() => fill("ticket")} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
+            <button onClick={() => changeLink(linkFor("ticket"))} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
               Tixora · concert tickets
             </button>
-            <button onClick={() => fill("dress")} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
+            <button onClick={() => changeLink(linkFor("dress"))} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
               Wren · wrap dress
             </button>
           </div>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <span className="py-1 text-muted">Real stores:</span>
             {REAL.map((r) => (
-              <button key={r.url} onClick={() => fillReal(r)} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
+              <button key={r.url} onClick={() => changeLink(r.url)} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
                 {r.label}
               </button>
             ))}
           </div>
-
-          <div className="mt-6 text-sm font-semibold">2. What you want, exactly</div>
-          {shownPreview?.data && shownPreview.data.acceptsPayPal && (
-            <WatchPlanner
-              key={shownPreview.data.url}
-              productName={shownPreview.data.name}
-              canBuy={shownPreview.data.isDemo}
-              priceCents={shownPreview.data.priceRange ? shownPreview.data.priceRange[0] : null}
-              choices={choices}
-              siblings={shownPreview.data.siblings ?? []}
-              onChange={onPlan}
-              onSwitchLink={(next) => {
-                setUrl(next);
-                setDraft(null);
-                setWants("");
-                setLastAuto("");
-              }}
-            />
+          {shownPreview && <PreviewCard p={shownPreview} />}
+          {shownPreview?.data && !shownPreview.data.acceptsPayPal && (
+            <p className="mt-2 rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad" role="alert">
+              Standby only watches shopping pages that accept PayPal, and this page doesn&apos;t show PayPal as a way to pay. Try another store.
+            </p>
           )}
-          <label className={`block text-sm ${shownPreview?.data ? "mt-3 font-medium text-muted" : "sr-only"}`} htmlFor="wants">
-            {shownPreview?.data ? "Scout writes it as you choose. Edit it, or describe it in your own words:" : "What you want, exactly"}
-          </label>
-          <textarea
-            id="wants"
-            value={wants}
-            onChange={(e) => {
-              setWants(e.target.value);
-              setDraft(null);
-            }}
-            rows={3}
-            placeholder="e.g. One ticket, left wing only, under $40 including fees."
-            className="mt-2 w-full resize-none rounded-xl border border-line px-3.5 py-2.5 text-sm outline-none focus:border-ink"
-          />
-          <p className="mt-1.5 text-xs text-muted">The more specific you are, the safer it is. Scout will only ever buy this one item.</p>
+          {found && <FoundPanel d={found} onSwitchLink={changeLink} />}
 
-          {!draft && (
-            <div className="mt-5 flex items-center gap-3">
-              <Button onClick={makeDraft} disabled={!url || !wants || busy !== null}>
-                {busy === "draft" ? "Scout is reading the page…" : "Turn this into a checklist"}
-              </Button>
-              {busy === "draft" && <Character who="scout" mood="thinking" size={36} />}
+          {found && (
+            <div className="rise mt-6">
+              <label className="flex items-center gap-2 text-[15px] font-semibold" htmlFor="wants">
+                <Character who="scout" mood="happy" size={30} className="shrink-0" />
+                2. What would you like Scout to watch on this page?
+              </label>
+              <textarea
+                id="wants"
+                value={wants}
+                onChange={(e) => {
+                  setWants(e.target.value);
+                  setDraft(null);
+                }}
+                rows={3}
+                placeholder={found.kind === "TICKET" ? "e.g. One seat in the left wing under $40 including fees." : "e.g. Size 11 when it's back in stock, under $110."}
+                className="mt-2 w-full resize-none rounded-xl border border-line px-3.5 py-2.5 text-[15px] outline-none focus:border-ink"
+              />
+              {found.suggestions.length > 0 && (
+                <div className="mt-2">
+                  <div className="text-xs font-semibold text-muted">Scout can watch for:</div>
+                  <div className="mt-1.5 flex flex-wrap gap-2">
+                    {found.suggestions.map((sg) => (
+                      <button
+                        key={sg.title}
+                        type="button"
+                        onClick={() => {
+                          setWants(sg.sentence.replace("{time}", tomorrowAtNine()));
+                          setDraft(null);
+                        }}
+                        className="rounded-full border border-scout/40 bg-scout-soft/60 px-3 py-1.5 text-sm hover:border-scout"
+                      >
+                        {sg.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!draft && (
+                <div className="mt-5 flex items-center gap-3">
+                  <Button onClick={makeDraft} disabled={!wants.trim() || busy !== null}>
+                    {busy === "draft" ? "Scout is reading the page…" : "Turn this into a checklist"}
+                  </Button>
+                  {busy === "draft" && <Character who="scout" mood="thinking" size={36} />}
+                </div>
+              )}
             </div>
           )}
         </Card>
 
-        {draft && item && (
+        {draft && item && availableNow.length > 0 && (
+          <Card className="rise mt-4 p-5">
+            <div className="flex gap-3">
+              <Character who="scout" mood="happy" size={48} className="shrink-0" />
+              <div className="space-y-2 text-[15px]">
+                <div className="rounded-2xl rounded-tl-md bg-good-soft px-3.5 py-2.5">
+                  <span className="font-semibold">Good news: you can get this right now.</span>{" "}
+                  {availableNow.map((a) => `${a.name.startsWith(`${item.name} - `) ? a.name.slice(item.name.length + 3) : a.name} is in stock at ${usd(a.priceCents)}`).join("; ")}
+                  {draft.maxTotalUsd ? `, inside your $${draft.maxTotalUsd} budget.` : "."}
+                </div>
+                <div className="rounded-2xl rounded-tl-md bg-scout-soft px-3.5 py-2.5">
+                  There&apos;s nothing to wait for, so I won&apos;t start a watch. I&apos;m for what you can&apos;t get yet: a sold-out size, a lower price, a set time.
+                  Change your words above if you&apos;re waiting for one of those.
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <a href={availableNow[0].url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white hover:bg-black">
+                Buy it now on {item.store} ↗
+              </a>
+              <Button kind="ghost" onClick={() => setDraft(null)}>
+                Change what I want
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {draft && item && availableNow.length === 0 && (
           <Card className="rise mt-4 p-5">
             <div className="flex gap-3">
               <Character who="scout" mood="happy" size={48} className="shrink-0" />
@@ -318,12 +330,15 @@ export default function NewWatch({
 
             {item.pickable && item.choices.length > 0 && (
               <div className="mt-5">
-                <div className="text-sm font-semibold">3. Tap what you want</div>
-                <p className="mt-0.5 text-xs text-muted">
-                  Scout ticked what matches your words. Change it if needed. Sold-out options are fine: Scout waits for a restock. The Vault will only ever accept what&apos;s ticked.
-                </p>
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="text-sm font-semibold">3. The exact option{picked.length === 1 ? "" : "s"}</div>
+                  <button type="button" onClick={() => setShowAllOptions(!showAllOptions)} className="text-xs font-semibold text-brand hover:underline">
+                    {picked.length === 0 ? "" : showAllOptions ? "Done" : "Change"}
+                  </button>
+                </div>
+                <p className="mt-0.5 text-xs text-muted">The Vault will only ever accept what&apos;s ticked.</p>
                 <ul className="mt-2 max-h-72 space-y-1.5 overflow-y-auto pr-1">
-                  {item.choices.map((c) => {
+                  {item.choices.filter((c) => showAllOptions || picked.length === 0 || picked.includes(c.id)).map((c) => {
                     const on = picked.includes(c.id);
                     return (
                       <li key={c.id}>
@@ -453,8 +468,11 @@ export default function NewWatch({
                     </>
                   )}
                   {notBefore && (
-                    <p className="mt-2 font-medium text-brand">
+                    <p className="mt-2 flex items-center gap-2 font-medium text-brand">
                       Scout stays quiet until {new Date(notBefore).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}, then starts.
+                      <button type="button" aria-label="Start now instead" onClick={() => setNotBefore(null)} className="text-muted hover:text-bad">
+                        ✕
+                      </button>
                     </p>
                   )}
                 </div>
@@ -530,10 +548,81 @@ type Preview = {
   inStock: number;
   priceRange: [number, number] | null;
   acceptsPayPal: boolean;
-  pickable?: boolean;
-  choices?: Choice[];
-  siblings?: Sibling[];
+  extracted: Extracted;
+  suggestions: { title: string; sentence: string }[];
 };
+
+function localNow() {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function tomorrowAtNine() {
+  const d = new Date(Date.now() + 86_400_000);
+  d.setHours(9, 0, 0, 0);
+  return `${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} on ${d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`;
+}
+
+// Everything Scout read on the page, from its own product data: colours, sizes with what's sold out, or the tickets on sale.
+function FoundPanel({ d, onSwitchLink }: { d: Preview; onSwitchLink: (url: string) => void }) {
+  const { groups, tickets } = d.extracted;
+  if (!groups.length && !tickets.length) return null;
+  return (
+    <section className="rise mt-3 rounded-2xl border border-line bg-bg/60 p-4" aria-labelledby="found-title">
+      <h2 id="found-title" className="text-sm font-semibold">
+        What Scout found on this page
+      </h2>
+      <div className="mt-3 space-y-3">
+        {groups.map((g) => (
+          <div key={g.label}>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted">{g.label}</div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {g.chips.map((c) =>
+                c.url ? (
+                  <button
+                    key={c.text}
+                    type="button"
+                    onClick={() => onSwitchLink(c.url!)}
+                    title="This colour has its own page. Tap to open it."
+                    className="rounded-lg border border-line bg-white px-2.5 py-1 text-sm hover:border-ink"
+                  >
+                    {c.text} <span className="text-muted" aria-hidden>↗</span>
+                  </button>
+                ) : (
+                  <span
+                    key={c.text}
+                    className={`rounded-lg border px-2.5 py-1 text-sm ${c.here ? "border-ink bg-white font-semibold" : c.inStock ? "border-line bg-white" : "border-dashed border-line bg-transparent text-muted"}`}
+                  >
+                    <span className={c.inStock ? "" : "line-through decoration-1"}>{c.text}</span>
+                    {!c.inStock && <span className="ml-1 text-[11px] font-semibold text-[#9a5d00]">sold out</span>}
+                    {c.here && <span className="ml-1 text-[11px] font-normal text-muted">this page</span>}
+                  </span>
+                ),
+              )}
+            </div>
+          </div>
+        ))}
+        {tickets.length > 0 && (
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted">Tickets on sale now ({tickets.length})</div>
+            <ul className="mt-1.5 divide-y divide-line rounded-xl border border-line bg-white text-sm">
+              {tickets.map((t, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span>
+                    {t.label}
+                    <span className="block text-xs text-muted">Sold by {t.seller}</span>
+                  </span>
+                  <span className="tabular font-semibold">{dollars(t.priceCents)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 const dollars = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;
 
@@ -582,7 +671,7 @@ function PreviewCard({ p }: { p: { loading: boolean; data?: Preview; error?: str
           {d.acceptsPayPal ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-good-soft px-2 py-0.5 text-[11px] font-semibold text-good">✓ Accepts PayPal</span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-bad-soft px-2 py-0.5 text-[11px] font-semibold text-bad">✕ No PayPal, so Standby can&apos;t watch it</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-bad-soft px-2 py-0.5 text-[11px] font-semibold text-bad">✕ This shopping page doesn&apos;t accept PayPal</span>
           )}
         </div>
       </div>

@@ -27,14 +27,20 @@ export type PageData = {
   image: string | null;
   // Other versions of this product the page links to (usually other colours), each its own page.
   siblings: { url: string; label: string }[];
+  // This page's own colour, read from its address when the store gives each colour its own page.
+  thisColour: string | null;
 };
 
 // Other colours usually live on their own product pages with a similar address
 // (".../womens-runner-nz-slip-on-mushroom" → "...-dark-navy"). Stores mention them on the page for their colour swatches.
-function siblingPages(html: string, pageUrl: string): { url: string; label: string }[] {
+const titleCase = (words: string[]) => words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+const SEASON = /^(ss|aw|fw|sp|su|fa)\d{2}$/i;
+
+function siblingPages(html: string, pageUrl: string): { siblings: { url: string; label: string }[]; thisColour: string | null } {
+  const none = { siblings: [], thisColour: null };
   const u = new URL(pageUrl);
   const m = u.pathname.match(/^(.*\/products\/)([a-z0-9-]+)\/?$/i);
-  if (!m) return [];
+  if (!m) return none;
   const [, base, handle] = m;
   const words = handle.split("-");
   // Closest match first ("mens-tree-runners" → "mens-tree-runners-jet-black"), never fewer than three words in common.
@@ -45,16 +51,18 @@ function siblingPages(html: string, pageUrl: string): { url: string; label: stri
       .filter((h) => h !== handle && !h.endsWith("-") && h.length < 120);
     if (found.length) {
       const known = new Set(words);
-      return found
+      const own = words.slice(words.length - cut).filter((w) => !SEASON.test(w));
+      const siblings = found
         .map((h) => {
-          const rest = h.slice(prefix.length + 1).split("-").filter((w) => !known.has(w) && !/^(ss|aw|fw|sp|su|fa)\d{2}$/i.test(w));
-          return { url: `${u.origin}${base}${h}`, label: rest.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") };
+          const rest = h.slice(prefix.length + 1).split("-").filter((w) => !known.has(w) && !SEASON.test(w));
+          return { url: `${u.origin}${base}${h}`, label: titleCase(rest) };
         })
         .filter((s, i, all) => s.label && all.findIndex((x) => x.label === s.label) === i)
         .slice(0, 10);
+      return { siblings, thisColour: own.length ? titleCase(own) : null };
     }
   }
-  return [];
+  return none;
 }
 
 function mentionsPayPal(html: string) {
@@ -155,6 +163,7 @@ export function parseDemoPage(url: string, html: string): PageData {
     acceptsPayPal: mentionsPayPal(html),
     image: null,
     siblings: [],
+    thisColour: null,
   };
 }
 
@@ -197,7 +206,7 @@ export function parseRealPage(url: string, html: string): PageData {
     }
   }
   const product = nodes.find((n) => hasType(n, "ProductGroup")) ?? nodes.find((n) => hasType(n, "Product"));
-  if (!product) throw new Error("This page has no product data Standby can lock onto. Try a single product's page.");
+  if (!product) throw new Error("This isn't a shopping page. Scout only watches pages where you can buy something, like one product or one event's tickets.");
 
   const host = new URL(url).hostname.replace(/^www\./, "");
   const brand = nameOf(product.brand) || host;
@@ -266,7 +275,7 @@ export function parseRealPage(url: string, html: string): PageData {
     storeName: host,
     acceptsPayPal: mentionsPayPal(html),
     image: pickImage(product.image ?? variants[0]?.image, html, url),
-    siblings: siblingPages(html, url),
+    ...siblingPages(html, url),
   };
 }
 
