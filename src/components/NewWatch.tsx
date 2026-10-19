@@ -153,16 +153,35 @@ export default function NewWatch({
           <label className="block text-sm font-semibold" htmlFor="url">
             1. The page to watch
           </label>
-          <input
-            id="url"
-            value={url}
-            onChange={(e) => {
-              setUrl(e.target.value);
-              setDraft(null);
-            }}
-            placeholder="Paste a product or event link"
-            className="mt-2 w-full rounded-xl border border-line px-3.5 py-2.5 text-sm outline-none focus:border-ink"
-          />
+          {/* A search-bar style address box, like Scout's browser on the homepage. */}
+          <div className="group mt-2 flex items-center gap-2 rounded-full border-2 border-line bg-white py-1.5 pl-4 pr-1.5 transition focus-within:border-scout focus-within:shadow-[0_0_0_4px_rgba(232,147,12,0.15)]">
+            <svg viewBox="0 0 20 20" className="h-5 w-5 shrink-0 text-muted group-focus-within:text-scout" aria-hidden>
+              <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" strokeWidth="2" />
+              <path d="M13 13l4.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            <input
+              id="url"
+              type="search"
+              inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
+              value={url}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setDraft(null);
+              }}
+              placeholder="Paste a product link"
+              className="min-w-0 flex-1 bg-transparent py-1.5 text-[15px] outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
+            />
+            {url && (
+              <button type="button" aria-label="Clear the link" onClick={() => { setUrl(""); setDraft(null); }} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted hover:bg-bg hover:text-ink">
+                ✕
+              </button>
+            )}
+            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-scout-soft px-3 py-1.5 text-xs font-bold text-[#9a5d00] sm:inline-flex">
+              <Character who="scout" mood="happy" size={18} /> Scout
+            </span>
+          </div>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <span className="py-1 text-muted">Demo links:</span>
             <button onClick={() => fill("ticket")} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
