@@ -5,7 +5,7 @@ import { agentHeaders } from "@/lib/manners";
 import { draftWatch, AiError } from "@/lib/ai";
 import { fail, storePath } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { assertPublicUrl } from "@/lib/safeFetch";
+import { assertPublicUrl, canonicalProductUrl } from "@/lib/safeFetch";
 import { rememberDraft } from "@/lib/draftCache";
 
 // Step 1 of a new watch: read the page once, lock onto the item, and turn the owner's words into a checklist.
@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
       const listing = await prisma.listing.findUnique({ where: { id: page.listingId } });
       if (!listing || listing.ownerId !== owner.id) return fail("That link is from someone else's demo. Use the links on this page.");
     } else {
-      const real = await assertPublicUrl(String(url ?? "").trim());
+      // Use the product's own address (not the longer category-listing one some stores ask bots to avoid).
+      const real = await assertPublicUrl(canonicalProductUrl(String(url ?? "")));
       page = await readPage(real.toString(), agentHeaders(null));
     }
     // Only shopping pages that take PayPal: a real store, a real price, and a payment method with buyer protection.

@@ -21,6 +21,26 @@ function privateAddress(ip: string) {
   return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
 }
 
+// A product opened from a category listing often has a longer address, e.g.
+//   store.com/collections/shorts/products/vital-shorts  →  store.com/products/vital-shorts
+// It's the same product page, and many stores ask bots to use only the short one (in robots.txt).
+// Tracking bits after "?" are dropped too, except a chosen variant.
+export function canonicalProductUrl(raw: string): string {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return raw.trim();
+  }
+  const m = url.pathname.match(/^(.*?)\/collections\/(?:[^/]+\/)+?products\/([^/?#]+)\/?$/);
+  if (m) url.pathname = `${m[1]}/products/${m[2]}`;
+  const variant = url.searchParams.get("variant");
+  url.search = "";
+  if (variant) url.searchParams.set("variant", variant);
+  url.hash = "";
+  return url.toString();
+}
+
 export async function assertPublicUrl(raw: string): Promise<URL> {
   let url: URL;
   try {

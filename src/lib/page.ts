@@ -59,7 +59,8 @@ export async function readPage(url: string, headers: Record<string, string>): Pr
   }
 
   const { fetchPublic, robotsAllows, RobotsBlocked, SiteError } = await import("./safeFetch");
-  if (!(await robotsAllows(url))) throw new RobotsBlocked("This store's robots.txt asks automated agents not to visit this page.");
+  if (!(await robotsAllows(url)))
+    throw new RobotsBlocked("This store asks bots not to read this exact link. Try the product's own page, usually shaped like store.com/products/name.");
   const res = await fetchPublic(url, { ...(await signedHeaders(url, headers)), Accept: "text/html" });
   if (res.status === 429 || res.status === 503) throw new BackoffError(retrySeconds(res.retryAfter));
   if (res.status === 401 || res.status === 403) throw new SiteError(`The store turned the visit away (${res.status}). Some stores block automated visitors.`);
