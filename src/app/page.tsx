@@ -1,15 +1,9 @@
 import Link from "next/link";
-import Character, { CAST, type Mood, type Who } from "@/components/Character";
+import Character, { CAST, type Who } from "@/components/Character";
 import { Logo } from "@/components/ui";
 import { scoutProvider } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
-
-const SAMPLE: { who: Who; mood: Mood; line: string }[] = [
-  { who: "scout", mood: "happy", line: "Section 106, Row E just dropped to $32. Left wing, one ticket. This is the one." },
-  { who: "banker", mood: "calm", line: "Checked the page myself. Left wing, $38 with the fee, one seat. Approved." },
-  { who: "vault", mood: "happy", line: "$38 total, quantity 1, inside your $40 hold and today's limit. Open." },
-];
 
 const NEVER = [
   "Spend more than the hold you approved in PayPal",
@@ -42,59 +36,13 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-12 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
-          <div>
-            <p className="inline-flex items-center gap-2 rounded-full bg-scout-soft px-3 py-1 text-xs font-semibold text-[#9a5d00]">
-              <span className="h-1.5 w-1.5 rounded-full bg-scout" /> AI that buys for you, with a second opinion
-            </p>
-            <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[56px]">
-              Say exactly what you want.
-              <br />
-              <span className="text-muted">It waits.</span> Two checks decide.
-            </h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
-              Standby watches a page while you&apos;re busy and buys the moment it matches your words: the ticket under $40, the dress back in your size.
-              It pays only when an independent AI reviewer and hard spending limits both say yes. Anything in between waits for you.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/start?next=/app" className="rounded-xl bg-ink px-5 py-3 text-sm font-semibold text-white hover:bg-black">
-                Try the demo
-              </Link>
-              <a href="#how" className="rounded-xl border border-line px-5 py-3 text-sm font-semibold hover:border-ink">
-                How it works
-              </a>
-            </div>
-            <p className="mt-4 text-xs text-muted">Runs on the PayPal sandbox with test money.</p>
-          </div>
-
-          <div className="rounded-3xl border border-line bg-bg p-5 shadow-[0_20px_60px_-30px_rgba(14,21,37,0.35)] sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold">1 left-wing ticket under $40</div>
-                <div className="text-xs text-muted">Nova Adé · Harbour Arena · Tixora</div>
-              </div>
-              <span className="rounded-full bg-good-soft px-2.5 py-1 text-xs font-semibold text-good">Bought</span>
-            </div>
-            <div className="mt-5 space-y-4">
-              {SAMPLE.map((s) => (
-                <div key={s.who} className="flex gap-3">
-                  <Character who={s.who} mood={s.mood} size={44} className="shrink-0" />
-                  <div>
-                    <div className="text-xs font-semibold" style={{ color: CAST[s.who].color }}>
-                      {CAST[s.who].name}
-                    </div>
-                    <div className="mt-1 rounded-2xl rounded-tl-md px-3.5 py-2.5 text-[15px] leading-snug" style={{ background: CAST[s.who].soft }}>
-                      {s.line}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-5 flex items-center gap-3 border-t border-line pt-4 text-sm">
-              <span className="rounded-lg bg-good-soft px-3 py-1.5 font-semibold text-good">✓ Bought</span>
-              <span className="text-muted">$38 taken from a $40 PayPal hold. $2 released.</span>
-            </div>
-          </div>
+        <section className="mx-auto max-w-6xl px-4 pb-16 pt-12 lg:pb-20 lg:pt-20">
+          <p className="inline-flex items-center gap-2 rounded-full bg-scout-soft px-3 py-1 text-xs font-semibold text-[#9a5d00]">
+            <span className="h-1.5 w-1.5 rounded-full bg-scout" /> AI that buys for you, with a second opinion
+          </p>
+          <h1 className="mt-6 text-5xl font-semibold leading-[1.04] tracking-tight sm:text-6xl lg:text-[88px]">
+            Say exactly what you want. <span className="text-muted">It waits.</span> Two checks decide.
+          </h1>
         </section>
 
         <section className="border-y border-line bg-bg">
