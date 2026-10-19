@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { linkFromPaste } from "./safeFetch";
 
 // The public address of this app, for links PayPal sends the owner back to.
 // Never built from req.url: behind a proxy that points at the internal host.
@@ -18,7 +19,10 @@ export function fail(message: string, status = 400) {
 export function storePath(input: string): string | null {
   let path = input.trim();
   try {
-    if (/^https?:\/\//.test(path)) path = new URL(path).pathname;
+    if (!path.startsWith("/")) {
+      const link = linkFromPaste(path);
+      if (/^https?:\/\//.test(link)) path = new URL(link).pathname;
+    }
   } catch {
     return null;
   }

@@ -25,10 +25,27 @@ function privateAddress(ip: string) {
 //   store.com/collections/shorts/products/vital-shorts  →  store.com/products/vital-shorts
 // It's the same product page, and many stores ask bots to use only the short one (in robots.txt).
 // Tracking bits after "?" are dropped too, except a chosen variant.
+// People paste links in every shape: "www.store.com/…" with no https, "http://…", or a whole message
+// ("Check this out https://…"). Pull out the web address and make it a proper https link.
+export function linkFromPaste(raw: string): string {
+  const text = raw.trim();
+  const withScheme = text.match(/https?:\/\/[^\s<>"']+/i)?.[0];
+  const bare = withScheme ? null : text.match(/(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>"']*)?/i)?.[0];
+  const found = (withScheme ?? (bare ? `https://${bare}` : text)).replace(/[),.;!?]+$/, "").replace(/^http:\/\//i, "https://");
+  // "store.com/…" can redirect somewhere odd (Gymshark's goes to its checkout site); "www.store.com/…" is what browsers show.
+  try {
+    const u = new URL(found);
+    if (u.hostname.split(".").length === 2) u.hostname = `www.${u.hostname}`;
+    return u.toString();
+  } catch {
+    return found;
+  }
+}
+
 export function canonicalProductUrl(raw: string): string {
   let url: URL;
   try {
-    url = new URL(raw.trim());
+    url = new URL(linkFromPaste(raw));
   } catch {
     return raw.trim();
   }

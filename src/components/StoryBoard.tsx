@@ -77,7 +77,10 @@ function ScoutBrowser() {
         <input
           id="scout-url"
           name="url"
-          type="url"
+          type="text"
+          inputMode="url"
+          autoComplete="off"
+          spellCheck={false}
           required
           placeholder="Paste a shopping link…"
           className="min-w-0 flex-1 rounded-lg border border-line px-2.5 py-2 text-sm outline-none focus:border-ink"
