@@ -8,7 +8,6 @@ import { scoutLook, bankerReview, AiError, type ScoutLook, type BankerReview } f
 import { runVault, type VaultResult } from "./vault";
 import { captureHold, releaseHold, PayPalError } from "./paypal";
 import { placeOrder } from "./stores";
-import { ruling } from "./ruling";
 import { money } from "./format";
 
 // The watch loop. For each new offer that might fit, three independent checks:
@@ -131,6 +130,7 @@ async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; cr
   const vault = await runVault(m.owner, m, offer.id, quantity, offer);
 
   const scoutYes = scout.isMatch;
+  const bankerYes = banker.verdict === "APPROVE" && banker.redFlags.length === 0;
   const record = {
     offerId: offer.id,
     offerLabel: offer.name,
@@ -142,28 +142,31 @@ async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; cr
     offerUrl: offer.url ?? null,
   };
 
-  const r = ruling({ vaultPass: vault.pass, scoutYes, bankerApproves: banker.verdict === "APPROVE", redFlags: banker.redFlags.length, mode: m.mode });
-  if (r === "BLOCKED") {
+  // 1. The Vault's limits are final.
+  if (!vault.pass) {
     await seal(m.id, { ...record, outcome: "BLOCKED", reason: vault.line, decidedBy: "agents" });
     await note(m.id, `Blocked ${offer.name}. Still watching.`);
     return;
   }
-  if (r === "SKIPPED") {
+  // 2. Neither AI wants it: nothing to ask.
+  if (!scoutYes && !bankerYes && banker.redFlags.length === 0) {
     await seal(m.id, { ...record, outcome: "SKIPPED", reason: scout.line, decidedBy: "agents" });
     await note(m.id, `Passed on ${offer.name}. Still watching.`);
     return;
   }
-  if (r === "FOUND") {
+  // 3. Everyone agrees. In alert mode, tell the owner and stop; they pay themselves.
+  if (scoutYes && bankerYes && m.mode === "ALERT") {
     await seal(m.id, { ...record, outcome: "FOUND", reason: "All three checks passed. Your turn.", decidedBy: "agents" });
     await prisma.mandate.update({ where: { id: m.id }, data: { status: "FOUND", lastNote: `Found it: ${offer.name}. Your turn.` } });
     return;
   }
-  if (r === "BUY") {
+  //    In buy mode, pay from the hold.
+  if (scoutYes && bankerYes) {
     const d = await seal(m.id, { ...record, outcome: "BUYING", reason: "Both checks said yes.", decidedBy: "agents" });
     await buy(m, d.id, offer.id, quantity, vault, "BOUGHT");
     return;
   }
-  // They disagree, or the Banker raised a red flag: the owner decides.
+  // 4. They disagree, or the Banker raised a red flag: the owner decides.
   await seal(m.id, { ...record, outcome: "NEEDS_YOU", reason: banker.redFlags[0] ?? (scoutYes ? banker.line : scout.line) });
   await prisma.mandate.update({ where: { id: m.id }, data: { status: "NEEDS_YOU", lastCheckedAt: new Date(), lastNote: "The checks disagree. Your call." } });
 }
