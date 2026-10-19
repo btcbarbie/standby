@@ -23,10 +23,35 @@ export type PageData = {
   storeName: string;
   // Does the page offer PayPal as a way to pay? Standby only takes on stores that do.
   acceptsPayPal: boolean;
+  // The product photo, for previews. Only https links; null if the page has none.
+  image: string | null;
 };
 
 function mentionsPayPal(html: string) {
   return /paypal/i.test(html);
+}
+
+// Product photo: the store's own product data first, then the page's share image.
+function pickImage(candidate: unknown, html: string, pageUrl: string): string | null {
+  const first = (v: unknown): string | null => {
+    if (!v) return null;
+    if (typeof v === "string") return v;
+    if (Array.isArray(v)) return first(v[0]);
+    if (typeof v === "object") return first((v as Record<string, unknown>).url ?? (v as Record<string, unknown>).contentUrl);
+    return null;
+  };
+  const raw = first(candidate) ?? html.match(/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i)?.[1] ?? null;
+  if (!raw) return null;
+  try {
+    const u = new URL(raw.replace(/&amp;/g, "&"), pageUrl);
+    if (u.protocol === "http:") u.protocol = "https:";
+    // Store image servers (like Shopify's) often hand out a thumbnail; ask for a sharper one.
+    const w = Number(u.searchParams.get("width"));
+    if (w && w < 600) u.searchParams.set("width", "600");
+    return u.protocol === "https:" ? u.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 // Store pages are served by this same app, so the agent reads them over the local network.
@@ -98,6 +123,7 @@ export function parseDemoPage(url: string, html: string): PageData {
     isDemo: true,
     storeName: url.includes("/tixora/") ? "Tixora" : "Wren",
     acceptsPayPal: mentionsPayPal(html),
+    image: null,
   };
 }
 
@@ -208,6 +234,7 @@ export function parseRealPage(url: string, html: string): PageData {
     isDemo: false,
     storeName: host,
     acceptsPayPal: mentionsPayPal(html),
+    image: pickImage(product.image ?? variants[0]?.image, html, url),
   };
 }
 

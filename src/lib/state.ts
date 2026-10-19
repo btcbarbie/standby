@@ -26,6 +26,7 @@ export async function loadState(ownerId: string, watchId?: string | null) {
     status: m.status,
     kind: m.kind,
     itemName: m.itemName,
+    imageUrl: m.imageUrl,
     store: m.storeName || (m.listingUrl.includes("/tixora/") ? "Tixora" : "Wren"),
     mode: m.mode,
     isDemo: m.isDemo,

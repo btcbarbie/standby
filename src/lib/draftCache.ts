@@ -8,7 +8,7 @@ export function rememberDraft(ownerId: string, page: PageData) {
   if (cache.size > 500) cache.delete(cache.keys().next().value!);
 }
 
-export function recallDraft(ownerId: string, url: string): PageData | null {
+export function recallDraft(ownerId: string, url: string, maxAgeMs = 30 * 60_000): PageData | null {
   const hit = cache.get(`${ownerId}|${url}`);
-  return hit && Date.now() - hit.at < 30 * 60_000 ? hit.page : null;
+  return hit && Date.now() - hit.at < maxAgeMs ? hit.page : null;
 }

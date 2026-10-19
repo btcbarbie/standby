@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Character from "./Character";
 import { AppHeader, Button, Card } from "./ui";
 import type { Draft } from "@/lib/ai";
@@ -76,6 +76,30 @@ export default function NewWatch({
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<Item | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+
+  // A quick look at the pasted link (no AI), shown as a preview card. Keyed by the link it belongs to,
+  // so an older answer never shows for a newer link.
+  const [preview, setPreview] = useState<{ forUrl: string; loading: boolean; data?: Preview; error?: string } | null>(null);
+  useEffect(() => {
+    const link = url.trim();
+    if (link.length < 8) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setPreview({ forUrl: link, loading: true });
+      try {
+        const res = await fetch("/api/watches/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: link }) });
+        const json = await res.json();
+        if (!cancelled) setPreview(res.ok ? { forUrl: link, loading: false, data: json } : { forUrl: link, loading: false, error: json.error ?? "Couldn't read that page." });
+      } catch {
+        if (!cancelled) setPreview({ forUrl: link, loading: false, error: "Couldn't reach Standby. Try again." });
+      }
+    }, 600);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [url]);
+  const shownPreview = preview && preview.forUrl === url.trim() ? preview : null;
 
   // Editable checklist
   const [title, setTitle] = useState("");
@@ -182,6 +206,7 @@ export default function NewWatch({
               <Character who="scout" mood="happy" size={18} /> Scout
             </span>
           </div>
+          {shownPreview && <PreviewCard p={shownPreview} />}
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <span className="py-1 text-muted">Demo links:</span>
             <button onClick={() => fill("ticket")} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
@@ -450,5 +475,73 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
         className="tabular mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-ink"
       />
     </label>
+  );
+}
+
+type Preview = {
+  url: string;
+  name: string;
+  store: string;
+  isDemo: boolean;
+  kind: string;
+  image: string | null;
+  options: number;
+  inStock: number;
+  priceRange: [number, number] | null;
+  acceptsPayPal: boolean;
+};
+
+const dollars = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;
+
+// What Scout sees at the link, before any AI: photo, name, store, price, stock, and whether it takes PayPal.
+function PreviewCard({ p }: { p: { loading: boolean; data?: Preview; error?: string } }) {
+  if (p.loading) {
+    return (
+      <div className="mt-3 flex items-center gap-3 rounded-2xl border border-line bg-bg p-3" role="status">
+        <div className="h-16 w-16 shrink-0 animate-pulse rounded-xl bg-white motion-reduce:animate-none" />
+        <div className="flex items-center gap-2 text-sm text-muted">
+          <Character who="scout" mood="thinking" size={22} /> Scout is taking a quick look at the page…
+        </div>
+      </div>
+    );
+  }
+  if (p.error || !p.data) {
+    return (
+      <div className="mt-3 flex items-start gap-3 rounded-2xl border border-bad/25 bg-bad-soft/60 p-3 text-sm text-bad" role="alert">
+        <Character who="scout" mood="stern" size={28} className="shrink-0" />
+        <span>{p.error}</span>
+      </div>
+    );
+  }
+  const d = p.data;
+  const price = d.priceRange ? (d.priceRange[0] === d.priceRange[1] ? dollars(d.priceRange[0]) : `${dollars(d.priceRange[0])}–${dollars(d.priceRange[1])}`) : null;
+  return (
+    <div className="mt-3 flex items-center gap-3 rounded-2xl border border-line bg-white p-3 shadow-sm">
+      <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl border border-line bg-white">
+        {d.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={d.image} alt="" className="h-full w-full object-contain" referrerPolicy="no-referrer" />
+        ) : (
+          <span className="text-2xl" aria-hidden>
+            {d.kind === "TICKET" ? "🎟️" : "🛍️"}
+          </span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-semibold">{d.name}</div>
+        <div className="mt-0.5 truncate text-xs text-muted">
+          {d.store}
+          {d.isDemo ? " · demo store" : ""}
+          {price ? ` · ${price}` : ""} · {d.inStock} of {d.options} option{d.options === 1 ? "" : "s"} in stock
+        </div>
+        <div className="mt-1.5">
+          {d.acceptsPayPal ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-good-soft px-2 py-0.5 text-[11px] font-semibold text-good">✓ Accepts PayPal</span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-bad-soft px-2 py-0.5 text-[11px] font-semibold text-bad">✕ No PayPal, so Standby can&apos;t watch it</span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

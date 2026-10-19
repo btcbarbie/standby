@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
       listingUrl: page.url,
       listingId: page.listingId,
       itemName: page.name,
+      imageUrl: page.image,
       sellerName,
       options: picked ? JSON.stringify(picked) : null,
       kind: page.kind,

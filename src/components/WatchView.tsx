@@ -67,7 +67,24 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
 
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Character who="scout" mood={w.status === "BOUGHT" || w.status === "FOUND" ? "happy" : pending ? "alert" : working ? "thinking" : "calm"} size={64} />
+            <div className="relative shrink-0">
+              {w.imageUrl ? (
+                <div className="grid h-20 w-20 place-items-center overflow-hidden rounded-2xl border border-line bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={w.imageUrl} alt={w.itemName} className="h-full w-full object-contain" referrerPolicy="no-referrer" />
+                </div>
+              ) : (
+                <Character who="scout" mood={w.status === "BOUGHT" || w.status === "FOUND" ? "happy" : pending ? "alert" : working ? "thinking" : "calm"} size={64} />
+              )}
+              {w.imageUrl && (
+                <Character
+                  who="scout"
+                  mood={w.status === "BOUGHT" || w.status === "FOUND" ? "happy" : pending ? "alert" : working ? "thinking" : "calm"}
+                  size={34}
+                  className="absolute -bottom-2 -right-2 rounded-full bg-white"
+                />
+              )}
+            </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold tracking-tight">{w.title}</h1>

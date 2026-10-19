@@ -6,7 +6,7 @@ import { draftWatch, AiError } from "@/lib/ai";
 import { fail, storePath } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { assertPublicUrl, canonicalProductUrl } from "@/lib/safeFetch";
-import { rememberDraft } from "@/lib/draftCache";
+import { recallDraft, rememberDraft } from "@/lib/draftCache";
 
 // Step 1 of a new watch: read the page once, lock onto the item, and turn the owner's words into a checklist.
 // Works with the demo stores and with real store pages (watch-and-alert only).
@@ -20,13 +20,14 @@ export async function POST(req: NextRequest) {
     let page: PageData;
     const demo = storePath(String(url ?? ""));
     if (demo) {
-      page = await readPage(demo, agentHeaders(null));
+      // Reuse the preview's read if it's fresh, so the store isn't visited twice.
+      page = recallDraft(owner.id, demo, 5 * 60_000) ?? (await readPage(demo, agentHeaders(null)));
       const listing = await prisma.listing.findUnique({ where: { id: page.listingId } });
       if (!listing || listing.ownerId !== owner.id) return fail("That link is from someone else's demo. Use the links on this page.");
     } else {
       // Use the product's own address (not the longer category-listing one some stores ask bots to avoid).
       const real = await assertPublicUrl(canonicalProductUrl(String(url ?? "")));
-      page = await readPage(real.toString(), agentHeaders(null));
+      page = recallDraft(owner.id, real.toString(), 5 * 60_000) ?? (await readPage(real.toString(), agentHeaders(null)));
     }
     // Only shopping pages that take PayPal: a real store, a real price, and a payment method with buyer protection.
     if (!page.acceptsPayPal) {
