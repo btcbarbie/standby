@@ -108,21 +108,25 @@ export default function Landing() {
         </section>
 
         <section className="border-y border-line bg-bg" aria-labelledby="stories-title">
-          <div className="mx-auto max-w-6xl px-4 py-16">
+          <div className="mx-auto max-w-6xl px-4 py-10">
             <h2 id="stories-title" className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Standby in real life
             </h2>
             <p className="mt-2 max-w-2xl text-muted">Two moments where you can&apos;t simply click Buy, and what Standby does about them.</p>
-            <div className="mt-8 grid gap-5 lg:grid-cols-2">
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">
               {STORIES.map((st) => (
                 <article key={st.key} className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white">
-                  <div className={`flex h-36 items-center justify-center ${st.key === "dress" ? "bg-[#fdecec]" : "bg-brand-soft"}`}>
-                    {st.key === "dress" ? <DressArt color="#d63a3a" className="h-28 w-auto" /> : <TicketArt className="h-24 w-auto" />}
-                  </div>
-                  <div className="flex flex-1 flex-col p-6">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted">{st.tag}</span>
-                    <h3 className="mt-1 text-xl font-semibold tracking-tight">{st.title}</h3>
-                    <ol className="mt-4 space-y-3">
+                  <div className="flex flex-1 flex-col p-5">
+                    <div className="flex items-center gap-4">
+                      <div className={`grid h-16 w-16 shrink-0 place-items-center rounded-xl ${st.key === "dress" ? "bg-[#fdecec]" : "bg-brand-soft"}`}>
+                        {st.key === "dress" ? <DressArt color="#d63a3a" className="h-12 w-auto" /> : <TicketArt className="w-12" />}
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{st.tag}</span>
+                        <h3 className="text-lg font-semibold leading-snug tracking-tight">{st.title}</h3>
+                      </div>
+                    </div>
+                    <ol className="mt-3 space-y-2">
                       {st.steps.map((step) => (
                         <li key={step.who}>
                           <span
@@ -132,12 +136,12 @@ export default function Landing() {
                           >
                             {step.who}
                           </span>
-                          <p className="mt-1 text-[15px] leading-relaxed text-ink/85">{step.text}</p>
+                          <p className="mt-0.5 text-sm leading-snug text-ink/85">{step.text}</p>
                         </li>
                       ))}
                     </ol>
-                    <p className="mt-auto pt-5">
-                      <span className="block rounded-xl bg-ink px-4 py-3 text-[15px] font-semibold text-white">
+                    <p className="mt-auto pt-4">
+                      <span className="block rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white">
                         <span className="text-white/60">The promise: </span>
                         {st.promise}
                       </span>
