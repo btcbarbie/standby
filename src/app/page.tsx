@@ -3,8 +3,62 @@ import Character from "@/components/Character";
 import { Logo } from "@/components/ui";
 import { scoutProvider } from "@/lib/ai";
 import StoryBoard from "@/components/StoryBoard";
+import DressArt from "@/components/DressArt";
 
 export const dynamic = "force-dynamic";
+
+// Two everyday situations Standby is built for, told start to finish.
+const STORIES = [
+  {
+    key: "dress",
+    tag: "Context-driven shopping",
+    title: "The dress you already found",
+    steps: [
+      { who: "The moment", text: "You find a red dress you love on a shopping website, but your size is unavailable, or the price is too high." },
+      {
+        who: "You",
+        text: "You paste the product link into Standby. It extracts the available sizes, price, product details and other relevant information. You tell it your size, preferred price and conditions.",
+      },
+      {
+        who: "Standby",
+        text: "Standby monitors the supported product page and waits for the right opportunity. If your size comes back in stock at an acceptable total price, it can proceed with the authorized purchase.",
+      },
+    ],
+    promise: "You find the item. Standby watches for your opportunity.",
+  },
+  {
+    key: "ticket",
+    tag: "Time-sensitive purchasing",
+    title: "The concert ticket you can't afford to miss",
+    steps: [
+      { who: "The moment", text: "Your favorite artist announces a concert. You find the official ticket page, but tickets are sold out." },
+      {
+        who: "You",
+        text: "You give the link to Standby and tell it to watch for new tickets, with a maximum checkout total that includes applicable fees and taxes.",
+      },
+      {
+        who: "Standby",
+        text: "When tickets become available, Standby checks the offer against your conditions. If the ticket qualifies, the seller and checkout are supported, and your authorization remains valid, it can attempt to secure the ticket without waiting for you to wake up.",
+      },
+    ],
+    promise: "Don't keep refreshing the page. Let Standby watch for you.",
+  },
+];
+
+function TicketArt({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 200 110" className={className} aria-hidden>
+      <path d="M14 18h172a6 6 0 0 1 6 6v20a12 12 0 0 0 0 24v20a6 6 0 0 1-6 6H14a6 6 0 0 1-6-6V68a12 12 0 0 0 0-24V24a6 6 0 0 1 6-6Z" fill="#1f4fd8" />
+      <path d="M140 22v68" stroke="#fff" strokeOpacity=".5" strokeWidth="2" strokeDasharray="5 5" />
+      <rect x="26" y="36" width="90" height="10" rx="5" fill="#fff" opacity=".9" />
+      <rect x="26" y="54" width="62" height="8" rx="4" fill="#fff" opacity=".55" />
+      <rect x="26" y="68" width="74" height="8" rx="4" fill="#fff" opacity=".55" />
+      <text x="166" y="62" textAnchor="middle" fontSize="14" fontWeight="700" fill="#fff" fontFamily="system-ui, sans-serif">
+        A1
+      </text>
+    </svg>
+  );
+}
 
 const NEVER = [
   "Spend more than the hold you approved in PayPal",
@@ -50,6 +104,51 @@ export default function Landing() {
           </div>
           <div className="mt-10">
             <StoryBoard scoutMaker={twoCompanies ? "Gemini" : "Claude"} />
+          </div>
+        </section>
+
+        <section className="border-y border-line bg-bg" aria-labelledby="stories-title">
+          <div className="mx-auto max-w-6xl px-4 py-16">
+            <h2 id="stories-title" className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              Standby in real life
+            </h2>
+            <p className="mt-2 max-w-2xl text-muted">Two moments where you can&apos;t simply click Buy, and what Standby does about them.</p>
+            <div className="mt-8 grid gap-5 lg:grid-cols-2">
+              {STORIES.map((st) => (
+                <article key={st.key} className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white">
+                  <div className={`flex h-36 items-center justify-center ${st.key === "dress" ? "bg-[#fdecec]" : "bg-brand-soft"}`}>
+                    {st.key === "dress" ? <DressArt color="#d63a3a" className="h-28 w-auto" /> : <TicketArt className="h-24 w-auto" />}
+                  </div>
+                  <div className="flex flex-1 flex-col p-6">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted">{st.tag}</span>
+                    <h3 className="mt-1 text-xl font-semibold tracking-tight">{st.title}</h3>
+                    <ol className="mt-4 space-y-3">
+                      {st.steps.map((step) => (
+                        <li key={step.who}>
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                              step.who === "Standby" ? "bg-scout-soft text-[#9a5d00]" : step.who === "You" ? "bg-brand-soft text-brand" : "bg-bg text-muted"
+                            }`}
+                          >
+                            {step.who}
+                          </span>
+                          <p className="mt-1 text-[15px] leading-relaxed text-ink/85">{step.text}</p>
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="mt-auto pt-5">
+                      <span className="block rounded-xl bg-ink px-4 py-3 text-[15px] font-semibold text-white">
+                        <span className="text-white/60">The promise: </span>
+                        {st.promise}
+                      </span>
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <p className="mx-auto mt-8 max-w-2xl text-center text-lg font-medium">
+              A chatbot can tell you tickets are available when you ask. <span className="text-muted">Standby is ready when they become available.</span>
+            </p>
           </div>
         </section>
 
