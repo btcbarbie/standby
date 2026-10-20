@@ -42,7 +42,7 @@ export default function Landing() {
             <p className="inline-flex items-center gap-2 rounded-full bg-scout-soft px-3 py-1 text-xs font-semibold text-[#9a5d00]">
               <span className="h-1.5 w-1.5 rounded-full bg-scout" /> AI that buys for you, with a second opinion
             </p>
-            <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">
+            <h1 className="mx-auto mt-4 max-w-5xl text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">
               Your AI shopper. <span className="text-muted">Your rules.</span> Your money.
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted">
