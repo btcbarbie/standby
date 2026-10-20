@@ -420,7 +420,7 @@ export default function NewWatch({
             </ul>
 
             <div className="mt-4 grid grid-cols-3 gap-3">
-              <Field label="Most in total ($)" value={maxTotal} onChange={setMaxTotal} />
+              <Field id="max-total" label="Most in total ($)" value={maxTotal} onChange={setMaxTotal} warn={!maxTotal} />
               <Field label="Quantity" value={quantity} onChange={setQuantity} />
               <Field label="Watch for (days)" value={days} onChange={setDays} />
             </div>
@@ -440,7 +440,7 @@ export default function NewWatch({
                 title="Buy it for me"
                 body={
                   item.acceptsAiBuyers
-                    ? `Approve a PayPal hold now. Standby pays the moment every check passes, never more than $${maxTotal || "…"}.`
+                    ? `Approve a PayPal hold now. Standby pays the moment every check passes, never more than ${maxTotal ? `$${maxTotal}` : "the most you set"}.`
                     : "Not available here: this store doesn't accept AI buyers yet. Stores opt in through programmes like PayPal's Agent Ready."
                 }
               />
@@ -452,7 +452,25 @@ export default function NewWatch({
                 <div>
                   {mode === "BUY" ? (
                     <>
-                      <div className="font-semibold">PayPal holds up to ${maxTotal || "…"}. Nothing is taken yet.</div>
+                      {maxTotal ? (
+                        <div className="font-semibold">PayPal holds up to ${maxTotal}. Nothing is taken yet.</div>
+                      ) : (
+                        <label className="flex flex-wrap items-center gap-2 font-semibold">
+                          How much should PayPal hold, at most?
+                          <span className="inline-flex items-center rounded-xl border-2 border-warn/60 bg-white px-2.5 py-1 font-normal focus-within:border-ink">
+                            $
+                            <input
+                              value={maxTotal}
+                              onChange={(e) => setMaxTotal(e.target.value.replace(/[^0-9.]/g, ""))}
+                              inputMode="decimal"
+                              size={6}
+                              placeholder="70"
+                              aria-label="Most you'll pay, in dollars"
+                              className="tabular w-16 bg-transparent outline-none"
+                            />
+                          </span>
+                        </label>
+                      )}
                       <p className="mt-1 text-muted">
                         Money only moves if Scout finds a match, the Banker agrees, and every Vault limit passes. If nothing matches, the hold is released. Holds last up to 29
                         days.
@@ -492,7 +510,11 @@ export default function NewWatch({
                   {busy === "hold" ? "Starting…" : "Start watching"}
                 </Button>
               )}
-              {!maxTotal && <span className="text-sm text-warn">Fill in the most you&apos;ll pay to start.</span>}
+              {!maxTotal && (
+                <button type="button" onClick={() => document.getElementById("max-total")?.focus()} className="text-sm font-medium text-warn underline-offset-2 hover:underline">
+                  Scout couldn&apos;t tell your budget. Fill in &ldquo;Most in total&rdquo; to start.
+                </button>
+              )}
               <Button kind="ghost" onClick={() => setDraft(null)}>
                 Start over
               </Button>
@@ -525,15 +547,16 @@ function ModeCard({ selected, onSelect, title, body, disabled }: { selected: boo
   );
 }
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Field({ id, label, value, onChange, warn }: { id?: string; label: string; value: string; onChange: (v: string) => void; warn?: boolean }) {
   return (
     <label className="block">
-      <span className="block text-xs font-semibold uppercase tracking-wide text-muted">{label}</span>
+      <span className={`block text-xs font-semibold uppercase tracking-wide ${warn ? "text-warn" : "text-muted"}`}>{label}</span>
       <input
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))}
         inputMode="decimal"
-        className="tabular mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-ink"
+        className={`tabular mt-1 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-ink ${warn ? "border-2 border-warn/60" : "border-line"}`}
       />
     </label>
   );
