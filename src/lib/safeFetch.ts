@@ -76,11 +76,15 @@ export async function assertPublicUrl(raw: string): Promise<URL> {
   return url;
 }
 
-export async function fetchPublic(raw: string, headers: Record<string, string>): Promise<{ status: number; url: string; text: string; retryAfter: string | null }> {
+export async function fetchPublic(
+  raw: string,
+  headers: Record<string, string>,
+  { timeoutMs = TIMEOUT_MS, maxBytes = MAX_BYTES }: { timeoutMs?: number; maxBytes?: number } = {},
+): Promise<{ status: number; url: string; text: string; retryAfter: string | null }> {
   let current = raw;
   for (let hop = 0; hop < 4; hop++) {
     const url = await assertPublicUrl(current);
-    const res = await fetch(url, { headers, redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const res = await fetch(url, { headers, redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
     if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
       current = new URL(res.headers.get("location")!, url).toString();
       continue;
@@ -92,7 +96,7 @@ export async function fetchPublic(raw: string, headers: Record<string, string>):
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_BYTES) {
+      if (size > maxBytes) {
         await reader.cancel();
         break;
       }

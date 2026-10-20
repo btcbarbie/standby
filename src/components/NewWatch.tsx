@@ -548,6 +548,7 @@ type Preview = {
   inStock: number;
   priceRange: [number, number] | null;
   acceptsPayPal: boolean;
+  aiCheckout: { supported: boolean; checkout: boolean; payWith: string[]; paypal: boolean } | null;
   extracted: Extracted;
   suggestions: { title: string; sentence: string }[];
 };
@@ -674,6 +675,15 @@ function PreviewCard({ p }: { p: { loading: boolean; data?: Preview; error?: str
             <span className="inline-flex items-center gap-1 rounded-full bg-bad-soft px-2 py-0.5 text-[11px] font-semibold text-bad">✕ This shopping page doesn&apos;t accept PayPal</span>
           )}
         </div>
+        {d.aiCheckout?.checkout && (
+          <div className="mt-1">
+            <span className="inline-flex items-center gap-1 rounded-full border border-line bg-bg px-2 py-0.5 text-[11px] font-medium text-muted">
+              Accepts AI checkouts
+              {d.aiCheckout.payWith.length ? ` · pays with ${d.aiCheckout.payWith.join(", ")}` : ""}
+              {d.aiCheckout.paypal ? "" : " (not PayPal)"}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

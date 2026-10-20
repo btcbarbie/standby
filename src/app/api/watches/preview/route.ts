@@ -7,8 +7,10 @@ import { prisma } from "@/lib/prisma";
 import { assertPublicUrl, canonicalProductUrl } from "@/lib/safeFetch";
 import { rememberDraft } from "@/lib/draftCache";
 import { extract, optionLabel, splitOption } from "@/lib/extract";
+import { aiCheckoutFor, type AiCheckout } from "@/lib/ucp";
 
 // A quick look at a pasted link, with no AI: what product it is, its photo, price and stock, and whether it takes PayPal.
+// For a real store, also whether it publishes an AI-checkout profile (information only: real stores stay alert-only).
 // The page read is kept, so making the checklist next doesn't visit the store again.
 export async function POST(req: NextRequest) {
   const owner = await currentOwner();
@@ -16,6 +18,7 @@ export async function POST(req: NextRequest) {
   const { url } = await req.json();
   try {
     let page: PageData;
+    let aiCheckout: AiCheckout | null = null;
     const demo = storePath(String(url ?? ""));
     if (demo) {
       page = await readPage(demo, agentHeaders(null));
@@ -23,7 +26,7 @@ export async function POST(req: NextRequest) {
       if (!listing || listing.ownerId !== owner.id) return fail("That link is from someone else's demo. Use the links on this page.");
     } else {
       const real = await assertPublicUrl(canonicalProductUrl(String(url ?? "")));
-      page = await readPage(real.toString(), agentHeaders(null));
+      [page, aiCheckout] = await Promise.all([readPage(real.toString(), agentHeaders(null)), aiCheckoutFor(real.toString())]);
     }
     rememberDraft(owner.id, page);
     const prices = page.offers.map((o) => o.priceCents);
@@ -39,6 +42,7 @@ export async function POST(req: NextRequest) {
       inStock,
       priceRange: prices.length ? [Math.min(...prices), Math.max(...prices)] : null,
       acceptsPayPal: page.acceptsPayPal,
+      aiCheckout,
       extracted: extract(page),
       suggestions: suggest(page),
     });
