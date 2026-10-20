@@ -43,9 +43,12 @@ export default function Landing() {
               <span className="h-1.5 w-1.5 rounded-full bg-scout" /> AI that buys for you, with a second opinion
             </p>
             <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">
-              Say exactly what you want.
-              <br className="hidden sm:block" /> <span className="text-muted">It waits.</span> Two checks decide.
+              Your AI shopper. <span className="text-muted">Your rules.</span> Your money.
             </h1>
+            <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted">
+              Give Standby the exact shopping link. It watches the page diligently and acts when the right opportunity comes along, within the limits and
+              requirements you set. Two independent AI checks review the purchase, while built-in safeguards enforce your limits before a purchase can proceed.
+            </p>
           </div>
           <div className="mt-10">
             <StoryBoard scoutMaker={twoCompanies ? "Gemini" : "Claude"} />
