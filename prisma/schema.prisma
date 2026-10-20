@@ -80,8 +80,28 @@ model Mandate {
   holdExpiresAt         DateTime?
 
   decisions Decision[]
+  events    Event[]
 
   @@index([status])
+}
+
+// The watch's running conversation: what Scout, the Banker, the Vault, PayPal and you said, in order.
+// Repeats (Scout checking and finding nothing new) fold into one line with a count.
+// Important moments (a buy, a find, a question for you) are also alerts, shown outside the chat until seen.
+model Event {
+  id         String    @id @default(cuid())
+  at         DateTime  @default(now())
+  lastAt     DateTime  @default(now())
+  count      Int       @default(1)
+  mandateId  String
+  mandate    Mandate   @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  who        String    // SCOUT | BANKER | VAULT | YOU | PAYPAL | STANDBY
+  text       String
+  decisionId String?
+  alert      Boolean   @default(false)
+  seenAt     DateTime?
+
+  @@index([mandateId, at])
 }
 
 // One candidate looked at by the agents. Sealed in order, so changes are detectable.

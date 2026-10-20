@@ -9,6 +9,7 @@ import { runVault, type VaultResult } from "./vault";
 import { captureHold, releaseHold, PayPalError } from "./paypal";
 import { placeOrder } from "./stores";
 import { money } from "./format";
+import { say } from "./events";
 
 // The watch loop. For each new offer that might fit, three independent checks:
 //   Scout (AI shopper), the Banker (AI reviewer, never sees Scout's answer) and the Vault (rules in code).
@@ -39,7 +40,8 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
     }
     // Timed watches (drops, launches): no visits at all until the chosen moment, then straight in.
     if (m.notBefore && new Date() < m.notBefore) {
-      if (!m.lastNote?.startsWith("Waiting until")) await note(m.id, `Waiting until ${m.notBefore.toUTCString().replace(" GMT", " UTC")} to start.`);
+      // {t:…} is shown in your own time zone.
+      if (!m.lastNote?.startsWith("Waiting until")) await say(m.id, "SCOUT", `Waiting until {t:${m.notBefore.toISOString()}} to start, as you asked. I won't visit the store before then.`);
       return;
     }
     // Visit-limited: a watch can only visit the store so many times.
@@ -73,16 +75,14 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
         return;
       }
       if (e instanceof BackoffError) {
-        await prisma.mandate.update({
-          where: { id: m.id },
-          data: { backoffUntil: new Date(Date.now() + e.seconds * 1000), lastNote: `The store asked for a break. Waiting ${e.seconds}s before the next visit.` },
-        });
+        await prisma.mandate.update({ where: { id: m.id }, data: { backoffUntil: new Date(Date.now() + e.seconds * 1000) } });
+        await say(m.id, "SCOUT", `The store asked for a break. Waiting ${e.seconds}s before my next visit.`);
         return;
       }
       throw e;
     }
     if (page.listingId !== m.listingId) {
-      await note(m.id, "The page no longer shows the item you chose. Waiting.");
+      await say(m.id, "SCOUT", "The page no longer shows the item you chose. Waiting.");
       return;
     }
 
@@ -100,23 +100,24 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
       .sort((a, b) => a.priceCents - b.priceCents);
 
     if (candidates.length === 0 && picked && !page.offers.some((o) => picked.includes(o.name) && o.inStock)) {
-      await note(m.id, `${picked.length === 1 ? "Your pick is" : "Your picks are"} sold out right now. Watching for a restock.`);
+      await say(m.id, "SCOUT", `Checked the page: ${picked.length === 1 ? "your pick is" : "your picks are"} still sold out. Watching for a restock.`);
       return;
     }
     if (candidates.length === 0) {
-      await note(m.id, policy === "SLOW" ? `Nothing new under ${money(m.maxTotalCents)}. The store asked for one visit a minute.` : `Nothing new under ${money(m.maxTotalCents)}.`);
+      await say(m.id, "SCOUT", policy === "SLOW" ? `Checked the page: nothing new under ${money(m.maxTotalCents)}. The store asked for one visit a minute.` : `Checked the page: nothing new under ${money(m.maxTotalCents)}.`);
       return;
     }
 
     await evaluate({ ...visit, owner: m.owner }, candidates[0], page.text);
   } catch (e) {
     const msg = e instanceof AiError || e instanceof PayPalError || e instanceof Error ? e.message : "Something went wrong.";
-    await note(mandateId, `Couldn't check just now: ${msg}`).catch(() => {});
+    await say(mandateId, "STANDBY", `Couldn't check just now: ${msg}`).catch(() => {});
   } finally {
     busy.delete(mandateId);
   }
 }
 
+// The quiet status line only (the decision itself shows in the conversation).
 async function note(mandateId: string, text: string) {
   await prisma.mandate.update({ where: { id: mandateId }, data: { lastNote: text } });
 }
@@ -159,8 +160,9 @@ async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; cr
   }
   // 3. Everyone agrees. In alert mode, tell the owner and stop; they pay themselves.
   if (scoutYes && bankerYes && m.mode === "ALERT") {
-    await seal(m.id, { ...record, outcome: "FOUND", reason: "All three checks passed. Your turn.", decidedBy: "agents" });
-    await prisma.mandate.update({ where: { id: m.id }, data: { status: "FOUND", lastNote: `Found it: ${offer.name}. Your turn.` } });
+    const d = await seal(m.id, { ...record, outcome: "FOUND", reason: "All three checks passed. Your turn.", decidedBy: "agents" });
+    await prisma.mandate.update({ where: { id: m.id }, data: { status: "FOUND" } });
+    await say(m.id, "STANDBY", `Found it: ${offer.name}. Scout, the Banker and the Vault all agree. Your turn.`, { alert: true, decisionId: d.id });
     return;
   }
   //    In buy mode, pay from the hold.
@@ -170,8 +172,9 @@ async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; cr
     return;
   }
   // 4. They disagree, or the Banker raised a red flag: the owner decides.
-  await seal(m.id, { ...record, outcome: "NEEDS_YOU", reason: banker.redFlags[0] ?? (scoutYes ? banker.line : scout.line) });
-  await prisma.mandate.update({ where: { id: m.id }, data: { status: "NEEDS_YOU", lastCheckedAt: new Date(), lastNote: "The checks disagree. Your call." } });
+  const d = await seal(m.id, { ...record, outcome: "NEEDS_YOU", reason: banker.redFlags[0] ?? (scoutYes ? banker.line : scout.line) });
+  await prisma.mandate.update({ where: { id: m.id }, data: { status: "NEEDS_YOU", lastCheckedAt: new Date() } });
+  await say(m.id, "STANDBY", `The checks disagree about ${offer.name}. Nothing is paid until you decide.`, { alert: true, decisionId: d.id });
 }
 
 async function buy(m: Mandate, decisionId: string, offerId: string, quantity: number, vault: VaultResult, outcome: "BOUGHT" | "APPROVED") {
@@ -182,14 +185,13 @@ async function buy(m: Mandate, decisionId: string, offerId: string, quantity: nu
       where: { id: decisionId },
       data: { outcome, paypalCaptureId: cap.captureId, decidedAt: new Date(), reason: outcome === "APPROVED" ? "You approved it." : "Both checks said yes." },
     });
-    await prisma.mandate.update({
-      where: { id: m.id },
-      data: { status: "BOUGHT", lastCheckedAt: new Date(), lastNote: `Bought for ${money(vault.totalCents!)}. PayPal capture ${cap.captureId}.` },
-    });
+    await prisma.mandate.update({ where: { id: m.id }, data: { status: "BOUGHT", lastCheckedAt: new Date() } });
+    await say(m.id, "PAYPAL", `Bought for ${money(vault.totalCents!)} from your hold. PayPal capture ${cap.captureId}.`, { alert: true, decisionId });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "PayPal didn't take the payment.";
     await prisma.decision.update({ where: { id: decisionId }, data: { outcome: "FAILED", reason: msg, decidedAt: new Date() } });
-    await prisma.mandate.update({ where: { id: m.id }, data: { status: "WATCHING", lastNote: `Payment failed: ${msg}` } });
+    await prisma.mandate.update({ where: { id: m.id }, data: { status: "WATCHING" } });
+    await say(m.id, "PAYPAL", `Payment failed: ${msg} Nothing was taken. Still watching.`, { alert: true, decisionId });
   }
 }
 
@@ -203,7 +205,8 @@ export async function decide(ownerId: string, decisionId: string, approve: boole
 
   if (!approve) {
     await prisma.decision.update({ where: { id: d.id }, data: { outcome: "DENIED", reason: "You said no.", decidedBy: "you", decidedAt: new Date() } });
-    await prisma.mandate.update({ where: { id: m.id }, data: { status: "WATCHING", lastNote: "You said no. Still watching." } });
+    await prisma.mandate.update({ where: { id: m.id }, data: { status: "WATCHING" } });
+    await say(m.id, "YOU", `No to ${d.offerLabel}. Keep watching.`, { decisionId: d.id });
     return;
   }
 
@@ -212,16 +215,19 @@ export async function decide(ownerId: string, decisionId: string, approve: boole
   const vault = await runVault(m.owner, { ...m, status: "WATCHING" }, d.offerId, scout.quantity, JSON.parse(d.snapshot));
   if (!vault.pass) {
     await prisma.decision.update({ where: { id: d.id }, data: { outcome: "BLOCKED", reason: vault.line, vault: JSON.stringify(vault), decidedBy: "you", decidedAt: new Date() } });
-    await prisma.mandate.update({ where: { id: m.id }, data: { status: "WATCHING", lastNote: "The Vault blocked it on a second look." } });
+    await prisma.mandate.update({ where: { id: m.id }, data: { status: "WATCHING" } });
+    await say(m.id, "VAULT", `You said yes, but I blocked it on a second look: ${vault.line}`, { decisionId: d.id });
     return;
   }
   await prisma.decision.update({ where: { id: d.id }, data: { decidedBy: "you", vault: JSON.stringify(vault), totalCents: vault.totalCents } });
   if (m.mode === "ALERT") {
     // Alert mode never pays by itself: your yes turns it into a find for you to buy.
     await prisma.decision.update({ where: { id: d.id }, data: { outcome: "FOUND", reason: "You said it's the one. Your turn to buy." } });
-    await prisma.mandate.update({ where: { id: m.id }, data: { status: "FOUND", lastNote: `Found it: ${d.offerLabel}. Your turn.` } });
+    await prisma.mandate.update({ where: { id: m.id }, data: { status: "FOUND" } });
+    await say(m.id, "YOU", `Yes, ${d.offerLabel} is the one. I'll buy it myself.`, { decisionId: d.id });
     return;
   }
+  await say(m.id, "YOU", `Yes, buy ${d.offerLabel}.`, { decisionId: d.id, note: false });
   await buy(m, d.id, d.offerId, scout.quantity, vault, "APPROVED");
 }
 
@@ -233,10 +239,12 @@ export async function foundAction(ownerId: string, decisionId: string, action: "
   if (d.outcome !== "FOUND") throw new Error("This one is already settled.");
   if (action === "bought") {
     await prisma.decision.update({ where: { id: d.id }, data: { outcome: "YOU_BOUGHT", reason: "You bought it yourself.", decidedBy: "you", decidedAt: new Date() } });
-    await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "BOUGHT", lastNote: "You bought it yourself. Watch finished." } });
+    await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "BOUGHT" } });
+    await say(d.mandateId, "YOU", "I bought it myself. Watch finished.", { decisionId: d.id });
   } else {
     await prisma.decision.update({ where: { id: d.id }, data: { outcome: "PASSED", reason: "You passed on it.", decidedBy: "you", decidedAt: new Date() } });
-    await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "WATCHING", lastNote: "You passed on it. Still watching." } });
+    await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "WATCHING" } });
+    await say(d.mandateId, "YOU", `Not this one. Keep watching.`, { decisionId: d.id });
   }
 }
 
@@ -249,7 +257,8 @@ export async function completeAlertPayment(decisionId: string, captureId: string
     where: { id: d.id },
     data: { outcome: "APPROVED", reason: "You approved and paid with PayPal.", paypalCaptureId: captureId, decidedBy: "you", decidedAt: new Date() },
   });
-  await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "BOUGHT", lastNote: `You paid ${money(d.totalCents ?? 0)} with PayPal. Capture ${captureId}.` } });
+  await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "BOUGHT" } });
+  await say(d.mandateId, "PAYPAL", `You paid ${money(d.totalCents ?? 0)} with PayPal. Capture ${captureId}.`, { alert: true, decisionId: d.id });
 }
 
 // Paused by time, visit limit or the store: the hold is released, and the owner can reactivate with a new one.
@@ -257,15 +266,18 @@ export async function pauseWatch(m: Mandate, reason: "DEADLINE" | "VISIT_LIMIT" 
   if (m.paypalAuthorizationId) await releaseHold(m.paypalAuthorizationId).catch(() => {});
   await prisma.mandate.update({
     where: { id: m.id },
-    data: { status: "PAUSED", pausedReason: reason, lastNote: text, paypalAuthorizationId: null, heldCents: null },
+    data: { status: "PAUSED", pausedReason: reason, paypalAuthorizationId: null, heldCents: null },
   });
+  await say(m.id, "SCOUT", text, { alert: true });
 }
 
 export async function endWatch(m: Mandate, text: string) {
   if (m.paypalAuthorizationId && m.status !== "BOUGHT") {
     await releaseHold(m.paypalAuthorizationId).catch(() => {});
   }
-  await prisma.mandate.update({ where: { id: m.id }, data: { status: "ENDED", lastNote: text, lastCheckedAt: new Date() } });
+  await prisma.mandate.update({ where: { id: m.id }, data: { status: "ENDED", lastCheckedAt: new Date() } });
+  await say(m.id, "YOU", "End this watch, please.");
+  await note(m.id, text);
 }
 
 // ---------- Sealed record: each decision carries a hash of the one before it ----------

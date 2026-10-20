@@ -53,7 +53,10 @@ export async function loadState(ownerId: string, watchId?: string | null) {
 
   let detail = null;
   if (watchId) {
-    const m = await prisma.mandate.findUnique({ where: { id: watchId }, include: { decisions: { orderBy: { seq: "desc" } } } });
+    const m = await prisma.mandate.findUnique({
+      where: { id: watchId },
+      include: { decisions: { orderBy: { seq: "desc" } }, events: { orderBy: { at: "desc" }, take: 200 } },
+    });
     if (m && m.ownerId === ownerId) {
       detail = {
         id: m.id,
@@ -67,6 +70,9 @@ export async function loadState(ownerId: string, watchId?: string | null) {
         holdExpiresAt: m.holdExpiresAt?.toISOString() ?? null,
         declaration: declaration(m).replace(/visit \d+ of (\d+)/, "at most $1 visits"),
         agentRef: agentRef(m.id),
+        events: m.events
+          .map((e) => ({ id: e.id, at: e.at.toISOString(), lastAt: e.lastAt.toISOString(), count: e.count, who: e.who, text: e.text, decisionId: e.decisionId, alert: e.alert }))
+          .reverse(),
         decisions: m.decisions.map((d) => ({
           id: d.id,
           seq: d.seq,
@@ -87,8 +93,17 @@ export async function loadState(ownerId: string, watchId?: string | null) {
     }
   }
 
+  // Important moments you haven't seen yet: a buy, a find, a question for you, a pause.
+  const alerts = await prisma.event.findMany({
+    where: { alert: true, seenAt: null, mandate: { ownerId } },
+    orderBy: { at: "desc" },
+    take: 20,
+    include: { mandate: { select: { title: true } } },
+  });
+
   return {
     stopped: owner?.stopped ?? false,
+    alerts: alerts.map((a) => ({ id: a.id, at: a.at.toISOString(), watchId: a.mandateId, watchTitle: a.mandate.title, who: a.who, text: a.text })),
     paypalReady: paypalConfigured(),
     stores: { tixora: store("tixora"), wren: store("wren") },
     watches,
@@ -100,3 +115,5 @@ export type AppState = Awaited<ReturnType<typeof loadState>>;
 export type WatchSummary = AppState["watches"][number];
 export type WatchDetail = NonNullable<AppState["detail"]>;
 export type DecisionView = WatchDetail["decisions"][number];
+export type EventView = WatchDetail["events"][number];
+export type AlertView = AppState["alerts"][number];

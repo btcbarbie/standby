@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Character from "./Character";
-import Scene, { verdictLine } from "./Scene";
-import { AppHeader, Button, Card, OutcomeStamp, StatusPill } from "./ui";
+import Scene from "./Scene";
+import Conversation, { withTimes } from "./Conversation";
+import AlertBell from "./AlertBell";
+import { AppHeader, Button, Card, StatusPill } from "./ui";
 import StopAll from "./StopAll";
 import { usePoll } from "@/lib/usePoll";
 import { money, shortDate } from "@/lib/format";
@@ -15,16 +17,19 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
   const { state, refresh } = usePoll(initial, id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+
+  // You're looking at this watch, so its alerts count as seen.
+  const unseenHere = state.alerts.some((a) => a.watchId === id);
+  useEffect(() => {
+    if (!unseenHere) return;
+    fetch("/api/alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ watchId: id }) }).then(refresh);
+  }, [unseenHere, id, refresh]);
 
   const w = state.watches.find((x) => x.id === id)!;
   const d = state.detail!;
   if (!w || !d) return null;
 
   const pending = d.decisions.find((x) => x.outcome === "NEEDS_YOU" || x.outcome === "FOUND");
-  const latest = d.decisions[0];
-  const featured = pending ?? latest;
-  const rest = d.decisions.filter((x) => x.id !== featured?.id);
   const working = w.status === "WATCHING" && /looking|checking/.test(w.lastNote ?? "");
 
   async function act(action: string) {
@@ -59,7 +64,14 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
 
   return (
     <div className="min-h-screen">
-      <AppHeader right={<StopAll stopped={state.stopped} onChange={refresh} />} />
+      <AppHeader
+        right={
+          <>
+            <AlertBell alerts={state.alerts} onSeen={refresh} />
+            <StopAll stopped={state.stopped} onChange={refresh} />
+          </>
+        }
+      />
       <main className="mx-auto max-w-5xl px-4 pb-24 pt-6">
         <Link href="/app" className="text-sm font-medium text-muted hover:text-ink">
           ← Your watches
@@ -145,14 +157,14 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
               <LiveLine w={w} working={working} stopped={state.stopped} />
             )}
 
-            {featured ? (
-              <Card className={`p-5 ${pending ? "border-warn/40 ring-2 ring-warn/15" : ""}`}>
+            {pending && (
+              <Card className="border-warn/40 p-5 ring-2 ring-warn/15">
                 <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="font-semibold">{featured.offerLabel}</h2>
-                  <span className="text-xs text-muted">Decision {featured.seq}</span>
+                  <h2 className="font-semibold">{pending.offerLabel}</h2>
+                  <span className="text-xs text-muted">Round {pending.seq} · waiting for you</span>
                 </div>
                 <Scene
-                  d={featured}
+                  d={pending}
                   onDecide={(approve) => decide({ approve })}
                   onFound={(action) => decide({ action })}
                   busy={busy}
@@ -160,38 +172,17 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                   canPay={w.isDemo && state.paypalReady}
                 />
               </Card>
-            ) : (
-              w.status !== "SETUP" && (
-                <Card className="p-6 text-center text-sm text-muted">
-                  Nothing has come up yet. When a new offer appears under {money(w.maxTotalCents)}, you&apos;ll see Scout, the Banker and the Vault talk it through here.
-                </Card>
-              )
             )}
 
-            {rest.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-sm font-semibold text-muted">Earlier</h3>
-                <Card className="divide-y divide-line">
-                  {rest.map((x) => (
-                    <div key={x.id}>
-                      <button onClick={() => setOpenId(openId === x.id ? null : x.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
-                        <OutcomeStamp outcome={x.outcome} />
-                        <span className="min-w-0 flex-1 truncate text-sm">
-                          <span className="font-medium">{x.offerLabel}</span>
-                          <span className="text-muted"> · {verdictLine(x)}</span>
-                        </span>
-                        <span className="shrink-0 text-xs text-muted"><TimeAgo at={x.at} /></span>
-                      </button>
-                      {openId === x.id && (
-                        <div className="px-4 pb-5">
-                          <Scene d={x} mode={w.mode} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </Card>
-              </div>
-            )}
+            {w.status !== "SETUP" || d.events.length > 0 ? (
+              <Conversation
+                events={d.events}
+                decisions={d.decisions.filter((x) => x.id !== pending?.id)}
+                mode={w.mode}
+                working={working && !state.stopped}
+                waitingOn={pending ? pending.offerLabel : null}
+              />
+            ) : null}
           </section>
 
           <aside className="space-y-4">
@@ -291,7 +282,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
 }
 
 function LiveLine({ w, working, stopped }: { w: AppState["watches"][number]; working: boolean; stopped: boolean }) {
-  let text = w.lastNote ?? "";
+  let text = withTimes(w.lastNote ?? "");
   if (w.status === "SETUP") text = w.lastNote ?? "Waiting for you to approve the PayPal hold.";
   if (stopped) text = "Stop all is on. Scout keeps still until you switch it back on.";
   return (

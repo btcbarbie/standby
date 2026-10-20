@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { currentOwner } from "@/lib/owner";
 import { DEMO_MAX_VISITS, DEMO_PACE_SEC, REAL_MAX_VISITS, REAL_PACE_SEC } from "@/lib/manners";
 import { prisma } from "@/lib/prisma";
+import { say } from "@/lib/events";
 import { paypalConfigured } from "@/lib/paypal";
 import { startHold } from "@/lib/holds";
 import { fail, publicOrigin, storePath } from "@/lib/http";
@@ -84,6 +85,14 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  await say(mandate.id, "YOU", String(body.wants).slice(0, 500), { note: false });
+  await say(
+    mandate.id,
+    "SCOUT",
+    mode === "ALERT"
+      ? `On it. I'll watch ${page.name} on ${page.storeName} and tell you the moment it matches: ${mandate.title}.`
+      : `On it. Once you approve the PayPal hold, I'll watch ${page.name} on ${page.storeName} for: ${mandate.title}.`,
+  );
   if (mode === "ALERT") return NextResponse.json({ id: mandate.id });
 
   try {

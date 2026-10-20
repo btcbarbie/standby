@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { currentOwner } from "@/lib/owner";
 import { prisma } from "@/lib/prisma";
+import { say } from "@/lib/events";
 import { checkMandate, endWatch } from "@/lib/watch";
 import { fail, publicOrigin } from "@/lib/http";
 import { paypalConfigured } from "@/lib/paypal";
@@ -15,16 +16,19 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/watches/[id
   const { action } = await req.json();
 
   if (action === "pause" && m.status === "WATCHING") {
-    await prisma.mandate.update({ where: { id }, data: { status: "PAUSED", pausedReason: "YOU", lastNote: "Paused by you. The hold stays in place." } });
+    await prisma.mandate.update({ where: { id }, data: { status: "PAUSED", pausedReason: "YOU" } });
+    await say(id, "YOU", m.mode === "BUY" ? "Pause for now. Keep the hold." : "Pause for now.");
   } else if (action === "resume" && m.status === "PAUSED" && m.pausedReason === "YOU") {
-    await prisma.mandate.update({ where: { id }, data: { status: "WATCHING", pausedReason: null, lastNote: "Watching again." } });
+    await prisma.mandate.update({ where: { id }, data: { status: "WATCHING", pausedReason: null } });
+    await say(id, "YOU", "Start watching again.");
   } else if (action === "reactivate" && m.status === "PAUSED" && m.pausedReason !== "YOU") {
     // A fresh round: new deadline, new visit allowance, and (in buy mode) a new PayPal hold to approve.
     if (m.mode === "ALERT") {
       await prisma.mandate.update({
         where: { id },
-        data: { status: "WATCHING", pausedReason: null, expiresAt: new Date(Date.now() + m.days * 86_400_000), visits: 0, backoffUntil: null, lastNote: "Reactivated. Watching again." },
+        data: { status: "WATCHING", pausedReason: null, expiresAt: new Date(Date.now() + m.days * 86_400_000), visits: 0, backoffUntil: null },
       });
+      await say(id, "YOU", `Reactivate for another ${m.days} days.`);
       return NextResponse.json({ ok: true });
     }
     if (!paypalConfigured()) return fail("PayPal isn't connected on this server yet.", 503);
@@ -38,9 +42,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/watches/[id
         backoffUntil: null,
         paypalAuthorizationId: null,
         heldCents: null,
-        lastNote: "Reactivating: approve a new PayPal hold to start watching again.",
       },
     });
+    await say(id, "YOU", `Reactivate for another ${m.days} days. I'll approve a new PayPal hold.`);
     try {
       return NextResponse.json({ ok: true, approveUrl: await startHold(fresh, publicOrigin(req)) });
     } catch (e) {

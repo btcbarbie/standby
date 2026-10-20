@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { say } from "@/lib/events";
 import { authorizeHold, capturePayment } from "@/lib/paypal";
 import { completeAlertPayment } from "@/lib/watch";
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
         const { captureId } = await capturePayment(d.paypalOrderId);
         await completeAlertPayment(d.id, captureId);
       } catch (e) {
-        await prisma.mandate.update({ where: { id: d.mandateId }, data: { lastNote: `Payment didn't go through: ${e instanceof Error ? e.message : "unknown error"}` } });
+        await say(d.mandateId, "PAYPAL", `Payment didn't go through: ${e instanceof Error ? e.message : "unknown error"}`, { alert: true, decisionId: d.id });
       }
     }
     return new NextResponse(null, { status: 307, headers: { Location: d ? `/app/w/${d.mandateId}` : "/app" } });
@@ -37,12 +38,12 @@ export async function GET(req: NextRequest) {
           paypalAuthorizationId: hold.authorizationId,
           heldCents: m.maxTotalCents,
           holdExpiresAt: hold.expiresAt,
-          lastNote: "Hold approved. Watching.",
           lastCheckedAt: null,
         },
       });
+      await say(id, "PAYPAL", `Hold approved: up to $${(m.maxTotalCents / 100).toFixed(2)} is held. Nothing is taken unless all three checks agree.`);
     } catch (e) {
-      await prisma.mandate.update({ where: { id }, data: { lastNote: `PayPal hold failed: ${e instanceof Error ? e.message : "unknown error"}` } });
+      await say(id, "PAYPAL", `The hold failed: ${e instanceof Error ? e.message : "unknown error"}`);
     }
   }
   return new NextResponse(null, { status: 307, headers: { Location: `/app/w/${id}` } });

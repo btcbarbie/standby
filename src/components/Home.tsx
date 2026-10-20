@@ -4,6 +4,8 @@ import Link from "next/link";
 import Character, { CAST, type Mood, type Who } from "./Character";
 import { AppHeader, Card, StatusPill, OutcomeStamp } from "./ui";
 import StopAll from "./StopAll";
+import AlertBell from "./AlertBell";
+import { withTimes } from "./Conversation";
 import { usePoll } from "@/lib/usePoll";
 import { money, shortDate } from "@/lib/format";
 import TimeAgo from "./TimeAgo";
@@ -34,12 +36,38 @@ export default function Home({ initial }: { initial: AppState }) {
 
   return (
     <div className="min-h-screen">
-      <AppHeader right={<StopAll stopped={state.stopped} onChange={refresh} />} />
+      <AppHeader
+        right={
+          <>
+            <AlertBell alerts={state.alerts} onSeen={refresh} />
+            <StopAll stopped={state.stopped} onChange={refresh} />
+          </>
+        }
+      />
       <main className="mx-auto max-w-5xl px-4 pb-20 pt-8">
         {state.stopped && (
           <div className="mb-6 rounded-2xl border border-bad/20 bg-bad-soft px-4 py-3 text-sm text-bad">
             <span className="font-semibold">Stop all is on.</span> No agent can buy anything until you switch it back on.
           </div>
+        )}
+
+        {state.alerts.length > 0 && (
+          <section className="mb-6 space-y-2" aria-label="New alerts">
+            {state.alerts.slice(0, 3).map((a) => (
+              <Link
+                key={a.id}
+                href={`/app/w/${a.watchId}`}
+                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition hover:shadow-sm ${a.who === "PAYPAL" ? "border-[#0070e0]/30 bg-[#e8f1fd]" : "border-warn/30 bg-warn-soft"}`}
+              >
+                <span className="h-2 w-2 shrink-0 rounded-full bg-bad" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="font-semibold">{a.watchTitle}: </span>
+                  {withTimes(a.text)}
+                </span>
+                <span className="shrink-0 text-xs font-semibold text-brand">Open →</span>
+              </Link>
+            ))}
+          </section>
         )}
 
         <div className="flex flex-wrap items-end justify-between gap-4">
