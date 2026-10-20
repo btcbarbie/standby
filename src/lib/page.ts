@@ -122,17 +122,27 @@ export async function readPage(url: string, headers: Record<string, string>): Pr
   }
 
   const { fetchPublic, robotsAllows, RobotsBlocked, SiteError } = await import("./safeFetch");
+  const store = new URL(url).hostname.replace(/^www\./, "");
   if (!(await robotsAllows(url)))
-    throw new RobotsBlocked("This store asks bots not to read this exact link. Try the product's own page, usually shaped like store.com/products/name.");
+    throw new RobotsBlocked(
+      `${store} is a shopping site, but its rules for bots (robots.txt) don't allow automated visitors on this link, so Scout can't watch or buy it. If this is a search or category link, try the product's own page.`,
+    );
   const res = await fetchPublic(url, { ...(await signedHeaders(url, headers)), Accept: "text/html" });
   if (res.status === 429 || res.status === 503) throw new BackoffError(retrySeconds(res.retryAfter));
-  if (res.status === 401 || res.status === 403) throw new SiteError(`The store turned the visit away (${res.status}). Some stores block automated visitors.`);
-  if (res.status !== 200) throw new SiteError(`The page didn't load (${res.status}).`);
+  if (res.status === 401 || res.status === 403)
+    throw new SiteError(`${store} turns bots away (it refused Scout's visit with a ${res.status}). It doesn't allow automated watchers or buyers, so Scout can't use it.`);
+  if (res.status === 404 || res.status === 410) throw new SiteError(`${store} says this page doesn't exist (${res.status}). Check the link, or open the product again and copy its address.`);
+  if (res.status !== 200) throw new SiteError(`${store} didn't load the page (${res.status}). Try again in a minute.`);
   // Some stores answer automated visitors with a bot check (a script and nothing else) instead of the page.
   // Standby doesn't try to get past those: it says who it is and respects the store's choice.
-  const visible = res.text.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<[^>]+>/g, "").trim();
-  if (!/<title/i.test(res.text) && visible.length < 200 && /<script/i.test(res.text)) {
-    throw new SiteError("This store blocks automated visitors with a bot check, so Scout can't read its pages. Standby doesn't get around those; try another store.");
+  const visible = res.text.replace(/<(script|style)[\s\S]*?<\/\1>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const title = res.text.match(/<title[^>]*>([^<]*)/i)?.[1] ?? "";
+  const botWall =
+    /robot or human|are you a (robot|human)|verify (that )?you are (a )?human|captcha|access denied|unusual traffic|just a moment|attention required|pardon our interruption|request (was )?blocked|bot detection/i;
+  if ((!title && visible.length < 200 && /<script/i.test(res.text)) || botWall.test(title) || (visible.length < 3000 && botWall.test(visible))) {
+    throw new SiteError(
+      `${store} is a shopping site, but it doesn't allow bots: it answers automated visitors with a bot check instead of the page. Scout can't watch or buy here, and Standby doesn't get around those checks.`,
+    );
   }
   return parseRealPage(url, res.text);
 }
@@ -212,7 +222,15 @@ export function parseRealPage(url: string, html: string): PageData {
     }
   }
   const product = nodes.find((n) => hasType(n, "ProductGroup")) ?? nodes.find((n) => hasType(n, "Product"));
-  if (!product) throw new Error("This isn't a shopping page with a product on it. If it's a store, open the product itself (not a search, ad or category page) and copy that page's link.");
+  if (!product) {
+    // A store's search, ad or category page still looks like a shop; anything else (a blog, news, Wikipedia) isn't one.
+    const shop = /add to (cart|bag|basket)|checkout|shopping (cart|bag)|og:type["']?\s+content=["']?product|"@type"\s*:\s*"(Offer|ItemList)"/i.test(html);
+    throw new Error(
+      shop
+        ? "This is a shopping site, but this link isn't one product's page (it looks like a search, ad or category page). Open the product itself and copy that page's link."
+        : "This isn't a shopping page. Scout only watches pages where you can buy something, like one product or one event's tickets.",
+    );
+  }
 
   const host = new URL(url).hostname.replace(/^www\./, "");
   const brand = nameOf(product.brand) || host;
