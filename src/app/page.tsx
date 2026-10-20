@@ -38,7 +38,7 @@ const STORIES = [
       },
       {
         who: "Standby",
-        text: "When tickets become available, Standby checks the offer against your conditions. If the ticket qualifies, the seller and checkout are supported, and your authorization remains valid, it can attempt to secure the ticket without waiting for you to wake up.",
+        text: "The moment new tickets appear, Standby checks each one against your conditions. If a ticket meets them and stays within the amount you approved, Standby buys it right away, even while you're asleep.",
       },
     ],
     promise: "Don't keep refreshing the page. Let Standby watch for you.",
@@ -146,9 +146,6 @@ export default function Landing() {
                 </article>
               ))}
             </div>
-            <p className="mx-auto mt-8 max-w-2xl text-center text-lg font-medium">
-              A chatbot can tell you tickets are available when you ask. <span className="text-muted">Standby is ready when they become available.</span>
-            </p>
           </div>
         </section>
 
