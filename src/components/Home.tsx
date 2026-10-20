@@ -79,7 +79,10 @@ export default function Home({ initial }: { initial: AppState }) {
           </section>
         )}
 
-        <div className="flex flex-wrap items-end justify-between gap-4">
+        <Link href="/" className="text-sm font-medium text-muted hover:text-ink">
+          ← Home
+        </Link>
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your watches</h1>
             <p className="mt-1 text-muted">Things you want, waited for. Bought only when the checks agree.</p>
@@ -196,7 +199,7 @@ function WatchRow({ w, action }: { w: WatchSummary; action?: React.ReactNode }) 
           </div>
           <div className="mt-1 truncate text-xs text-muted">
             {w.status === "WATCHING" && <><TimeAgo at={w.lastCheckedAt} prefix="Checked " /> · {w.visits} visits · </>}
-            {w.lastNote ?? (w.status === "SETUP" ? "Approve the PayPal hold to start watching." : "")}
+            {w.lastNote ? withTimes(w.lastNote) : w.status === "SETUP" ? "Approve the PayPal hold to start watching." : ""}
           </div>
         </div>
         <div className="hidden shrink-0 text-right sm:block">

@@ -15,6 +15,7 @@ export default function StopAll({ stopped, onChange }: { stopped: boolean; onCha
     <button
       onClick={toggle}
       disabled={busy}
+      title={stopped ? "Let your watches visit stores and buy again" : "Emergency brake: every watch stops visiting stores and nothing can be bought until you switch it back on"}
       className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
         stopped ? "bg-good text-white hover:opacity-90" : "border border-bad/30 bg-white text-bad hover:bg-bad-soft"
       }`}
