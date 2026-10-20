@@ -128,6 +128,12 @@ export async function readPage(url: string, headers: Record<string, string>): Pr
   if (res.status === 429 || res.status === 503) throw new BackoffError(retrySeconds(res.retryAfter));
   if (res.status === 401 || res.status === 403) throw new SiteError(`The store turned the visit away (${res.status}). Some stores block automated visitors.`);
   if (res.status !== 200) throw new SiteError(`The page didn't load (${res.status}).`);
+  // Some stores answer automated visitors with a bot check (a script and nothing else) instead of the page.
+  // Standby doesn't try to get past those: it says who it is and respects the store's choice.
+  const visible = res.text.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<[^>]+>/g, "").trim();
+  if (!/<title/i.test(res.text) && visible.length < 200 && /<script/i.test(res.text)) {
+    throw new SiteError("This store blocks automated visitors with a bot check, so Scout can't read its pages. Standby doesn't get around those; try another store.");
+  }
   return parseRealPage(url, res.text);
 }
 
@@ -206,7 +212,7 @@ export function parseRealPage(url: string, html: string): PageData {
     }
   }
   const product = nodes.find((n) => hasType(n, "ProductGroup")) ?? nodes.find((n) => hasType(n, "Product"));
-  if (!product) throw new Error("This isn't a shopping page. Scout only watches pages where you can buy something, like one product or one event's tickets.");
+  if (!product) throw new Error("This isn't a shopping page with a product on it. If it's a store, open the product itself (not a search, ad or category page) and copy that page's link.");
 
   const host = new URL(url).hostname.replace(/^www\./, "");
   const brand = nameOf(product.brand) || host;
