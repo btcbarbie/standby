@@ -83,8 +83,8 @@ function suggest(page: PageData): { title: string; sentence: string }[] {
     out.push({
       title: `${p.charAt(0).toUpperCase()}${p.slice(1)} back in stock`,
       sentence: canBuy
-        ? `Buy ${page.name} in ${p} the moment it's back in stock. Most I'll pay: ${whole(o.priceCents)} plus any shipping or fees. Just one.`
-        : `Tell me the moment ${page.name} in ${p} is back in stock, at ${whole(o.priceCents)} or less.`,
+        ? `Buy ${page.name} in ${p} the moment it's back in stock. Just one.`
+        : `Tell me the moment ${page.name} in ${p} is back in stock.`,
     });
   }
   const example = page.offers.find((o) => o.inStock) ?? page.offers[0];
@@ -97,8 +97,8 @@ function suggest(page: PageData): { title: string; sentence: string }[] {
   out.push({
     title: "At a set time",
     sentence: canBuy
-      ? `At {time}, buy ${page.name}${pick} the moment it's on sale. Most I'll pay: ${whole(example.priceCents)} plus any shipping or fees. Just one.`
-      : `At {time}, check ${page.name}${pick} and tell me if it's on sale for ${whole(example.priceCents)} or less.`,
+      ? `At {time}, buy ${page.name}${pick} the moment it's on sale. Just one.`
+      : `At {time}, check ${page.name}${pick} and tell me if it's on sale.`,
   });
   return out;
 }

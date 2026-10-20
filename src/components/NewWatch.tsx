@@ -101,6 +101,8 @@ export default function NewWatch({
   const [anySeller, setAnySeller] = useState(false);
   const [mode, setMode] = useState<"ALERT" | "BUY">("ALERT");
   const [notBefore, setNotBefore] = useState<string | null>(null);
+  const [today, setToday] = useState<{ totalCents: number; priceCents: number; feeCents: number; feesKnown: boolean } | null>(null);
+  const [budgetSuggested, setBudgetSuggested] = useState(false);
   const [availableNow, setAvailableNow] = useState<{ name: string; priceCents: number; url: string }[]>([]);
   const [showAllOptions, setShowAllOptions] = useState(false);
 
@@ -130,6 +132,8 @@ export default function NewWatch({
       setAnySeller(json.item.storeSeller ? d.anySeller : true);
       setMode(json.item.acceptsAiBuyers ? "BUY" : "ALERT");
       setNotBefore(json.notBefore ?? null);
+      setToday(json.today ?? null);
+      setBudgetSuggested(!!json.budgetSuggested);
       setAvailableNow(json.availableNow ?? []);
       setShowAllOptions(false);
     } catch (e) {
@@ -424,6 +428,7 @@ export default function NewWatch({
               <Field label="Quantity" value={quantity} onChange={setQuantity} />
               <Field label="Watch for (days)" value={days} onChange={setDays} />
             </div>
+            {today && <BudgetNote today={today} suggested={budgetSuggested} maxTotal={maxTotal} isDemo={item.isDemo} />}
 
             <div className="mt-6 text-sm font-semibold">{item.pickable ? "5." : "4."} When it matches</div>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -544,6 +549,38 @@ function ModeCard({ selected, onSelect, title, body, disabled }: { selected: boo
       </span>
       <span className="mt-1 block text-xs leading-relaxed text-muted">{body}</span>
     </button>
+  );
+}
+
+// Scout's sum of what it costs today, so the budget starts from a real number. You can lower it (wait for a
+// better price) or raise it (prices that tend to climb: resale tickets, launches). The Vault never pays more.
+function BudgetNote({
+  today,
+  suggested,
+  maxTotal,
+  isDemo,
+}: {
+  today: { totalCents: number; priceCents: number; feeCents: number; feesKnown: boolean };
+  suggested: boolean;
+  maxTotal: string;
+  isDemo: boolean;
+}) {
+  const set = Number(maxTotal) * 100;
+  const breakdown = today.feeCents ? ` (${usd(today.priceCents)} + ${usd(today.feeCents)} ${isDemo ? "shipping and fees" : "fees"})` : "";
+  return (
+    <div className="mt-2 space-y-1 text-xs">
+      <p className="text-muted">
+        <span className="font-semibold text-ink">Today&apos;s total: {usd(today.totalCents)}</span>
+        {breakdown}
+        {!today.feesKnown && ". This page doesn't show shipping or tax, so add some room if you need it"}.
+        {suggested && " Scout filled in your budget from this. Lower it to wait for a better price."}
+      </p>
+      {set > today.totalCents && (
+        <p className="text-warn">
+          That&apos;s {usd(set - today.totalCents)} more than today. Fine if the price may rise (resale tickets, launches); Standby still never pays more than {usd(set)}.
+        </p>
+      )}
+    </div>
   );
 }
 

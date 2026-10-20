@@ -54,21 +54,42 @@ export async function POST(req: NextRequest) {
       if (amounts.length) draft.maxTotalUsd = Math.min(...amounts) * (draft.quantity ?? 1);
     }
 
+    const qty = draft.quantity ?? 1;
+    // If your words talk about a price (a $ amount, a drop, a sale), "available now" needs a budget you actually gave.
+    const priceTalk = /\$|\d+\s*(dollars|usd)|drop|lower|cheaper|sale|discount|deal|dip|under|less|budget|price/i.test(String(wants));
+    const budgetFromYou = draft.maxTotalUsd != null;
+
+    // What it costs today, all in: the price plus any fee or shipping the store charges (the demo stores list theirs;
+    // real stores' product data doesn't, so it's the price only). Used to suggest your budget when you didn't name one.
+    const fees = page.isDemo
+      ? new Map((await prisma.offer.findMany({ where: { listingId: page.listingId }, select: { id: true, feeCents: true } })).map((o) => [o.id, o.feeCents]))
+      : new Map<string, number>();
+    const totalOf = (o: (typeof page.offers)[number]) => (o.priceCents + (fees.get(o.id) ?? 0)) * qty;
+    const matched = page.offers.filter((o) => draft.matchingOptionIds.includes(o.id));
+    const basis = matched.length
+      ? matched.reduce((a, b) => (totalOf(b) > totalOf(a) ? b : a))
+      : page.offers.length
+        ? page.offers.reduce((a, b) => (totalOf(b) < totalOf(a) ? b : a))
+        : null;
+    const today = basis
+      ? { totalCents: totalOf(basis), priceCents: basis.priceCents * qty, feeCents: (fees.get(basis.id) ?? 0) * qty, feesKnown: page.isDemo, label: basis.name }
+      : null;
+    if (!budgetFromYou && today) draft.maxTotalUsd = today.totalCents / 100;
+
     // Is what you asked for on sale right now, inside your budget? Then there's nothing to wait for:
     // Standby is for what you can't get yet, so it points you to the store instead of starting a watch.
-    const qty = draft.quantity ?? 1;
-    // If your words talk about a price (a $ amount, a drop, a sale), "available now" needs a budget the AI actually read.
-    const priceTalk = /\$|\d+\s*(dollars|usd)|drop|lower|cheaper|sale|discount|deal|dip|under|less|budget|price/i.test(String(wants));
     const availableNow =
-      pickable && !notBefore && !(priceTalk && draft.maxTotalUsd == null)
-        ? page.offers
-            .filter((o) => draft.matchingOptionIds.includes(o.id) && o.inStock && (draft.maxTotalUsd == null || (o.priceCents * qty) / 100 <= draft.maxTotalUsd))
-            .map((o) => ({ name: o.name, priceCents: o.priceCents, url: o.url ?? page.url }))
+      pickable && !notBefore && !(priceTalk && !budgetFromYou)
+        ? matched
+            .filter((o) => o.inStock && (draft.maxTotalUsd == null || totalOf(o) / 100 <= draft.maxTotalUsd))
+            .map((o) => ({ name: o.name, priceCents: totalOf(o), url: o.url ?? page.url }))
         : [];
     return NextResponse.json({
       draft,
       notBefore,
       availableNow,
+      today,
+      budgetSuggested: !budgetFromYou && !!today,
       item: {
         url: page.url,
         listingId: page.listingId,
