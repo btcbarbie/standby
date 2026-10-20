@@ -101,6 +101,38 @@ export default function Landing() {
               It watches the page diligently and acts when the right opportunity comes along, within the limits and requirements you set. Two independent
               AI checks review the purchase, while built-in safeguards enforce your limits before a purchase can proceed.
             </p>
+            {/* The first thing to do: hand Standby a link. It goes straight to New watch with the link filled in. */}
+            <form action="/app/new" method="get" className="mx-auto mt-7 max-w-2xl">
+              <label htmlFor="hero-url" className="sr-only">
+                Paste a shopping link
+              </label>
+              <div className="flex items-center gap-2 rounded-2xl border-2 border-line bg-white p-1.5 pl-4 shadow-sm transition focus-within:border-scout focus-within:shadow-[0_0_0_4px_rgba(232,147,12,0.15)]">
+                <svg viewBox="0 0 20 20" className="h-5 w-5 shrink-0 text-muted" aria-hidden>
+                  <path d="M8.5 11.5l3-3M7 9.5l-1.6 1.6a2.8 2.8 0 0 0 4 4L11 13.5M13 10.5l1.6-1.6a2.8 2.8 0 0 0-4-4L9 6.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                </svg>
+                <input
+                  id="hero-url"
+                  name="url"
+                  type="text"
+                  inputMode="url"
+                  autoComplete="off"
+                  spellCheck={false}
+                  required
+                  placeholder="Paste a shopping link"
+                  className="min-w-0 flex-1 bg-transparent py-2.5 text-base outline-none placeholder:text-muted"
+                />
+                <button type="submit" className="shrink-0 rounded-xl bg-scout px-4 py-2.5 text-sm font-bold text-white hover:brightness-95 sm:px-5">
+                  Watch<span className="hidden sm:inline"> this link</span>
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-muted">Any shopping page that accepts PayPal. Standby reads it and shows you what it found.</p>
+            </form>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm">
+              <span className="text-muted">No link handy?</span>
+              <Link href="/start?next=/app" className="rounded-xl bg-ink px-5 py-2.5 font-semibold text-white hover:bg-black">
+                Try the demo
+              </Link>
+            </div>
           </div>
           <div className="mt-10">
             <StoryBoard scoutMaker={twoCompanies ? "Gemini" : "Claude"} />
