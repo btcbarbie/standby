@@ -40,14 +40,12 @@ export default function Landing() {
         <section className="mx-auto max-w-6xl px-4 pb-16 pt-10 lg:pb-20 lg:pt-14">
           <div className="text-center">
             <p className="inline-flex items-center gap-2 rounded-full bg-scout-soft px-3 py-1 text-xs font-semibold text-[#9a5d00]">
-              <span className="h-1.5 w-1.5 rounded-full bg-scout" /> AI that buys for you, with a second opinion
+              <span className="h-1.5 w-1.5 rounded-full bg-scout" /> Your AI shopper. Your rules. Your money.
             </p>
-            <h1 className="mx-auto mt-4 max-w-5xl text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">
-              Your AI shopper. <span className="text-muted">Your rules.</span> Your money.
-            </h1>
+            <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">Give Standby the exact shopping link.</h1>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted">
-              Give Standby the exact shopping link. It watches the page diligently and acts when the right opportunity comes along, within the limits and
-              requirements you set. Two independent AI checks review the purchase, while built-in safeguards enforce your limits before a purchase can proceed.
+              It watches the page diligently and acts when the right opportunity comes along, within the limits and requirements you set. Two independent
+              AI checks review the purchase, while built-in safeguards enforce your limits before a purchase can proceed.
             </p>
           </div>
           <div className="mt-10">
