@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Character, { CAST, type Who } from "@/components/Character";
+import Character from "@/components/Character";
 import { Logo } from "@/components/ui";
 import { scoutProvider } from "@/lib/ai";
 import StoryBoard from "@/components/StoryBoard";
@@ -49,38 +49,6 @@ export default function Landing() {
           </div>
           <div className="mt-10">
             <StoryBoard scoutMaker={twoCompanies ? "Gemini" : "Claude"} />
-          </div>
-        </section>
-
-        <section className="border-y border-line bg-bg">
-          <div className="mx-auto max-w-6xl px-4 py-16">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Meet the team on your account</h2>
-            <p className="mt-2 max-w-2xl text-muted">
-              Each one is a separate part of the system with one job. No single AI can spend your money on its own say-so.
-            </p>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {(["scout", "banker", "vault", "you"] as Who[]).map((who) => (
-                <div key={who} className="rounded-2xl border border-line bg-white p-5">
-                  <Character who={who} mood={who === "scout" ? "happy" : "calm"} size={72} />
-                  <div className="mt-4 text-lg font-semibold" style={{ color: CAST[who].color }}>
-                    {CAST[who].name}
-                  </div>
-                  <p className="mt-1 text-sm text-muted">{CAST[who].role}.</p>
-                  <p className="mt-3 text-xs font-medium text-ink/70">
-                    {
-                      {
-                        scout: `An AI (${twoCompanies ? "Google Gemini" : "Anthropic Claude"}). Reads the page, proposes a purchase. Can't pay.`,
-                        banker: twoCompanies
-                          ? "A second AI from a different company (Anthropic Claude). Reviews blind, flags tricks. Can't pay."
-                          : "A second AI (Anthropic Claude). Reviews blind, flags tricks. Can't pay.",
-                        vault: "Not an AI. Plain rules: item, seller, price, quantity, speed.",
-                        you: "Approve the PayPal hold once. Break any tie.",
-                      }[who]
-                    }
-                  </p>
-                </div>
-              ))}
-            </div>
           </div>
         </section>
 
