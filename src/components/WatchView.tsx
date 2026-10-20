@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import Character from "./Character";
 import Scene from "./Scene";
 import Conversation, { withTimes } from "./Conversation";
 import AlertBell from "./AlertBell";
+import BackLink, { SkipPayPalOnBack } from "./BackLink";
 import { AppHeader, Button, Card, StatusPill } from "./ui";
 import StopAll from "./StopAll";
 import { usePoll } from "@/lib/usePoll";
@@ -73,9 +73,8 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
         }
       />
       <main className="mx-auto max-w-5xl px-4 pb-24 pt-6">
-        <Link href="/app" className="text-sm font-medium text-muted hover:text-ink">
-          ← Your watches
-        </Link>
+        <SkipPayPalOnBack />
+        <BackLink />
 
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">

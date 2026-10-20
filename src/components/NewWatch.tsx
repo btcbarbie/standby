@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import Character from "./Character";
 import { AppHeader, Button, Card } from "./ui";
+import BackLink from "./BackLink";
 import type { Draft } from "@/lib/ai";
 import type { Extracted } from "@/lib/extract";
 
@@ -160,7 +160,7 @@ export default function NewWatch({
 
   return (
     <div className="min-h-screen">
-      <AppHeader right={<Link href="/app" className="text-sm font-medium text-muted hover:text-ink">Cancel</Link>} />
+      <AppHeader right={<BackLink label="Cancel" />} />
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-8">
         <h1 className="text-2xl font-semibold tracking-tight">New watch</h1>
         <p className="mt-1 text-muted">Point Scout at one exact page and say what you want in your own words.</p>

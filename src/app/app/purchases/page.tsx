@@ -5,6 +5,7 @@ import { money } from "@/lib/format";
 import { AppHeader, Card } from "@/components/ui";
 import TimeAgo from "@/components/TimeAgo";
 import Character from "@/components/Character";
+import BackLink from "@/components/BackLink";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,7 @@ export default async function PurchasesPage() {
     <div className="min-h-screen">
       <AppHeader />
       <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
-        <Link href="/app" className="text-sm font-medium text-muted hover:text-ink">
-          ← Your watches
-        </Link>
+        <BackLink />
         <h1 className="mt-3 text-2xl font-semibold tracking-tight">Purchases</h1>
         <p className="mt-1 text-muted">Every buy, kept on record, even for watches you&apos;ve removed from your dashboard.</p>
 

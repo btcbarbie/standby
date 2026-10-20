@@ -8,5 +8,5 @@ export async function GET(req: NextRequest) {
   if (m && m.status === "SETUP") {
     await say(id, "YOU", "Cancel the PayPal step. Nothing is held.");
   }
-  return new NextResponse(null, { status: 307, headers: { Location: m ? `/app/w/${id}` : "/app" } });
+  return new NextResponse(null, { status: 307, headers: { Location: m ? `/app/w/${id}?via=paypal` : "/app" } });
 }

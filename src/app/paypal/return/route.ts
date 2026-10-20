@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
         await say(d.mandateId, "PAYPAL", `Payment didn't go through: ${e instanceof Error ? e.message : "unknown error"}`, { alert: true, decisionId: d.id });
       }
     }
-    return new NextResponse(null, { status: 307, headers: { Location: d ? `/app/w/${d.mandateId}` : "/app" } });
+    return new NextResponse(null, { status: 307, headers: { Location: d ? `/app/w/${d.mandateId}?via=paypal` : "/app" } });
   }
 
   const id = req.nextUrl.searchParams.get("watch") ?? "";
@@ -46,5 +46,5 @@ export async function GET(req: NextRequest) {
       await say(id, "PAYPAL", `The hold failed: ${e instanceof Error ? e.message : "unknown error"}`);
     }
   }
-  return new NextResponse(null, { status: 307, headers: { Location: `/app/w/${id}` } });
+  return new NextResponse(null, { status: 307, headers: { Location: `/app/w/${id}?via=paypal` } });
 }
