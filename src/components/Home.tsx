@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Character, { CAST, type Mood, type Who } from "./Character";
 import { AppHeader, Card, StatusPill, OutcomeStamp } from "./ui";
@@ -22,7 +23,15 @@ export default function Home({ initial }: { initial: AppState }) {
   const { state, refresh } = usePoll(initial);
   const watches = state.watches;
   const active = watches.filter((w) => ["WATCHING", "NEEDS_YOU", "PAUSED", "SETUP"].includes(w.status));
-  const past = watches.filter((w) => ["BOUGHT", "ENDED"].includes(w.status));
+  const past = watches.filter((w) => ["BOUGHT", "ENDED"].includes(w.status) && !w.hidden);
+  const hidden = watches.filter((w) => w.hidden);
+  const [showHidden, setShowHidden] = useState(false);
+
+  // Hiding only takes a finished watch off this page. Its record and any purchase are kept.
+  async function setHidden(id: string, hide: boolean) {
+    await fetch(`/api/watches/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: hide ? "hide" : "unhide" }) });
+    refresh();
+  }
   const needsYou = watches.filter((w) => w.status === "NEEDS_YOU").length;
   const watching = watches.filter((w) => w.status === "WATCHING").length;
   const looked = watches.reduce((n, w) => n + w.looked, 0);
@@ -75,9 +84,14 @@ export default function Home({ initial }: { initial: AppState }) {
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your watches</h1>
             <p className="mt-1 text-muted">Things you want, waited for. Bought only when the checks agree.</p>
           </div>
-          <Link href="/app/new" className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-black">
-            + New watch
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/app/purchases" className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-semibold hover:border-ink">
+              Purchases
+            </Link>
+            <Link href="/app/new" className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-black">
+              + New watch
+            </Link>
+          </div>
         </div>
 
         <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -109,9 +123,53 @@ export default function Home({ initial }: { initial: AppState }) {
                 <h2 className="text-sm font-semibold text-muted">Finished</h2>
                 <div className="mt-3 space-y-3">
                   {past.map((w) => (
-                    <WatchRow key={w.id} w={w} />
+                    <WatchRow
+                      key={w.id}
+                      w={w}
+                      action={
+                        <button
+                          type="button"
+                          onClick={() => setHidden(w.id, true)}
+                          aria-label={`Remove “${w.title}” from your dashboard`}
+                          title="Remove from dashboard (kept on record)"
+                          className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-line bg-white text-muted transition hover:border-ink hover:text-ink"
+                        >
+                          <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" aria-hidden>
+                            <path d="M2.5 10s2.7-5 7.5-5 7.5 5 7.5 5-2.7 5-7.5 5-7.5-5-7.5-5Z" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                            <circle cx="10" cy="10" r="2.3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                            <path d="M3.5 16.5l13-13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      }
+                    />
                   ))}
                 </div>
+              </section>
+            )}
+            {hidden.length > 0 && (
+              <section className="mt-6">
+                <button type="button" onClick={() => setShowHidden(!showHidden)} className="text-sm font-medium text-muted hover:text-ink" aria-expanded={showHidden}>
+                  {showHidden ? "Hide" : "Show"} {hidden.length} removed watch{hidden.length > 1 ? "es" : ""}
+                </button>
+                {showHidden && (
+                  <div className="mt-3 space-y-3 opacity-80">
+                    {hidden.map((w) => (
+                      <WatchRow
+                        key={w.id}
+                        w={w}
+                        action={
+                          <button
+                            type="button"
+                            onClick={() => setHidden(w.id, false)}
+                            className="h-10 shrink-0 rounded-full border border-line bg-white px-3 text-xs font-semibold text-muted hover:border-ink hover:text-ink"
+                          >
+                            Put back
+                          </button>
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
               </section>
             )}
           </>
@@ -123,9 +181,9 @@ export default function Home({ initial }: { initial: AppState }) {
   );
 }
 
-function WatchRow({ w }: { w: WatchSummary }) {
-  return (
-    <Link href={`/app/w/${w.id}`} className="block">
+function WatchRow({ w, action }: { w: WatchSummary; action?: React.ReactNode }) {
+  const row = (
+    <Link href={`/app/w/${w.id}`} className="block min-w-0 flex-1">
       <Card className={`flex items-center gap-4 p-4 transition hover:border-ink/40 ${w.status === "NEEDS_YOU" ? "border-warn/40 ring-2 ring-warn/15" : ""}`}>
         <Character who="scout" mood={scoutMood(w)} size={52} className="shrink-0" />
         <div className="min-w-0 flex-1">
@@ -153,6 +211,14 @@ function WatchRow({ w }: { w: WatchSummary }) {
         </div>
       </Card>
     </Link>
+  );
+  return action ? (
+    <div className="flex items-center gap-2">
+      {row}
+      {action}
+    </div>
+  ) : (
+    row
   );
 }
 

@@ -150,7 +150,8 @@ export default function NewWatch({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      window.location.href = json.approveUrl ?? `/app/w/${json.id}`;
+      // Replace the form in history, so Back from the new watch goes where you came from (like the homepage).
+      window.location.replace(json.approveUrl ?? `/app/w/${json.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
       setBusy(null);
@@ -491,6 +492,7 @@ export default function NewWatch({
                   {busy === "hold" ? "Starting…" : "Start watching"}
                 </Button>
               )}
+              {!maxTotal && <span className="text-sm text-warn">Fill in the most you&apos;ll pay to start.</span>}
               <Button kind="ghost" onClick={() => setDraft(null)}>
                 Start over
               </Button>

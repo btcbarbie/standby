@@ -52,6 +52,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/watches/[id
     }
   } else if (action === "end" && !["BOUGHT", "ENDED"].includes(m.status)) {
     await endWatch(m, "Ended by you. Hold released.");
+  } else if (action === "hide" && ["BOUGHT", "ENDED"].includes(m.status)) {
+    await prisma.mandate.update({ where: { id }, data: { hidden: true } });
+  } else if (action === "unhide") {
+    await prisma.mandate.update({ where: { id }, data: { hidden: false } });
   } else if (action === "check" && m.status === "WATCHING") {
     void checkMandate(id, { force: true });
   } else {

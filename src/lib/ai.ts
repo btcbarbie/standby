@@ -89,7 +89,12 @@ export const Draft = z.object({
   cantSee: z
     .array(z.string())
     .describe("Plain sentences telling the owner which of their wishes this page doesn't show, so Standby can't check them. E.g. 'This page doesn't show shipping costs, so I can't check \"under $5 shipping\".' Empty if none."),
-  maxTotalUsd: z.number().nullable().describe("The most the owner will pay in total, fees included, in US dollars. Null if they didn't say."),
+  maxTotalUsd: z
+    .number()
+    .nullable()
+    .describe(
+      "The most the owner will pay in total, fees included, in US dollars. A target price counts: 'drops to $22 or less', 'under $40', 'at most $70' all set it. Null only if they named no price at all.",
+    ),
   quantity: z.number().int().nullable().describe("How many to buy. Null if they didn't say."),
   startAt: z
     .string()

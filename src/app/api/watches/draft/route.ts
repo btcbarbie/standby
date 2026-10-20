@@ -48,12 +48,19 @@ export async function POST(req: NextRequest) {
     });
     if (tapped.length) draft.matchingOptionIds = tapped.map((o) => o.id);
     const notBefore = startMoment(draft.startAt, Number(tzOffset) || 0);
+    // If the AI missed a price you wrote ("drops to $22"), take the lowest $ amount from your words.
+    if (draft.maxTotalUsd == null) {
+      const amounts = [...String(wants).matchAll(/\$\s?(\d+(?:\.\d{1,2})?)/g)].map((m) => Number(m[1])).filter((n) => n > 0);
+      if (amounts.length) draft.maxTotalUsd = Math.min(...amounts) * (draft.quantity ?? 1);
+    }
 
     // Is what you asked for on sale right now, inside your budget? Then there's nothing to wait for:
     // Standby is for what you can't get yet, so it points you to the store instead of starting a watch.
     const qty = draft.quantity ?? 1;
+    // If your words talk about a price (a $ amount, a drop, a sale), "available now" needs a budget the AI actually read.
+    const priceTalk = /\$|\d+\s*(dollars|usd)|drop|lower|cheaper|sale|discount|deal|dip|under|less|budget|price/i.test(String(wants));
     const availableNow =
-      pickable && !notBefore
+      pickable && !notBefore && !(priceTalk && draft.maxTotalUsd == null)
         ? page.offers
             .filter((o) => draft.matchingOptionIds.includes(o.id) && o.inStock && (draft.maxTotalUsd == null || (o.priceCents * qty) / 100 <= draft.maxTotalUsd))
             .map((o) => ({ name: o.name, priceCents: o.priceCents, url: o.url ?? page.url }))
