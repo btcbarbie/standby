@@ -47,6 +47,11 @@ export async function POST(req: NextRequest) {
       now: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(now)) ? String(now) : new Date().toISOString().slice(0, 16) + " UTC",
     });
     if (tapped.length) draft.matchingOptionIds = tapped.map((o) => o.id);
+    // A start time is when to begin watching, not something the item has to match.
+    if (draft.startAt) draft.mustHave = draft.mustHave.filter((m) => !/^(start|begin|starting|watch from|from \d)/i.test(m.text.trim()));
+    // A seller you named, as the page spells it, so the Vault can hold the watch to that seller in code.
+    const named = draft.onlySeller?.trim().toLowerCase();
+    const namedSeller = named ? (page.offers.find((o) => o.seller.trim().toLowerCase() === named)?.seller ?? null) : null;
     const notBefore = startMoment(draft.startAt, Number(tzOffset) || 0);
     // If the AI missed a price you wrote ("drops to $22"), take the lowest $ amount from your words.
     if (draft.maxTotalUsd == null) {
@@ -96,7 +101,7 @@ export async function POST(req: NextRequest) {
         name: page.name,
         kind: page.kind,
         store: page.storeName,
-        storeSeller: page.isDemo && page.storeName === "Wren" ? "Wren" : null,
+        storeSeller: namedSeller ?? (page.isDemo && page.storeName === "Wren" ? "Wren" : null),
         isDemo: page.isDemo,
         // Only stores that accept AI buyers can be paid automatically. Real stores today: watch and alert.
         acceptsAiBuyers: page.isDemo,

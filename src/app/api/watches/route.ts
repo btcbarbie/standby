@@ -47,7 +47,9 @@ export async function POST(req: NextRequest) {
     if (!listing || listing.ownerId !== owner.id) return fail("That link is from someone else's demo.");
   }
 
-  const sellerName = page.isDemo && page.storeName === "Wren" && !body.anySeller ? "Wren" : null;
+  // One seller only (the store itself, or a seller you named): the Vault holds the watch to them in code.
+  const wanted = !body.anySeller ? String(body.seller ?? (page.isDemo && page.storeName === "Wren" ? "Wren" : "")) : "";
+  const sellerName = wanted && page.offers.some((o) => o.seller === wanted) ? wanted : null;
   // Ticked options are stored by name, so the same size from another seller still counts as the same option.
   const picked = page.kind === "TICKET" || !Array.isArray(body.optionIds) || body.optionIds.length === 0
     ? null

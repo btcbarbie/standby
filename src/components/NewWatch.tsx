@@ -150,7 +150,7 @@ export default function NewWatch({
       const res = await fetch("/api/watches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: item!.url, wants, title, mustHave: mustHave.map((m) => m.text), optionIds: picked, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode, notBefore }),
+        body: JSON.stringify({ url: item!.url, wants, title, mustHave: mustHave.map((m) => m.text), optionIds: picked, seller: item!.storeSeller, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode, notBefore }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
@@ -392,7 +392,7 @@ export default function NewWatch({
               {item.storeSeller && (
                 <label className="mt-2 flex items-center gap-2 text-xs text-muted">
                   <input type="checkbox" checked={anySeller} onChange={(e) => setAnySeller(e.target.checked)} />
-                  Allow marketplace sellers too
+                  Allow other sellers too
                 </label>
               )}
             </div>
