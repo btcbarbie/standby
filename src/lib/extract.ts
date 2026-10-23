@@ -59,3 +59,64 @@ export function extract(page: PageData): Extracted {
   }
   return { groups, tickets: [] };
 }
+
+// ---------- Locks: details a listing must have, checked in code ----------
+// Every site describes its listings differently (section and row, seat, seller, size, colour, date...).
+// These read whatever details a listing's own data shows, so a lock works on any site that shows that detail.
+
+export type Lock = { field: string; values: string[] };
+
+const FIELD_WORDS: Record<string, string> = {
+  section: "section", sec: "section", row: "row", seat: "seat", seats: "seat", zone: "zone", tier: "tier", level: "level",
+  block: "block", area: "area", stand: "stand", gate: "gate", size: "size", colour: "colour", color: "colour",
+  date: "date", day: "date", time: "time", type: "type",
+};
+
+export function offerFields(page: Pick<PageData, "name" | "kind">, offer: { name: string; seller?: string }): Record<string, string> {
+  const out: Record<string, string> = {};
+  const loose: string[] = [];
+  for (const part of optionLabel(page, offer.name).split(/\s+·\s+|\s+-\s+|\s+\/\s+|,\s+/).map((p) => p.trim()).filter(Boolean)) {
+    const m = part.match(/^([A-Za-z]+)\s+(.+)$/);
+    const key = m ? FIELD_WORDS[m[1].toLowerCase()] : undefined;
+    if (key && !out[key]) out[key] = m![2].trim();
+    else loose.push(part);
+  }
+  for (const part of loose) {
+    if (page.kind === "TICKET") out.type ??= part;
+    else if (!out.size && SIZE.test(part)) out.size = part.replace(/^size\s+/i, "");
+    else out.colour ??= part.replace(/^colou?r\s+/i, "");
+  }
+  if (offer.seller) out.seller = offer.seller;
+  return out;
+}
+
+// Each detail the listings on this page have, with the values seen (a seller only counts when there's more than one).
+export function pageFields(page: PageData): Record<string, string[]> {
+  const seen: Record<string, Set<string>> = {};
+  for (const o of page.offers) for (const [k, v] of Object.entries(offerFields(page, o))) (seen[k] ??= new Set()).add(v);
+  const out: Record<string, string[]> = {};
+  for (const [k, vals] of Object.entries(seen)) if (k !== "seller" || vals.size > 1) out[k] = [...vals].slice(0, 40);
+  return out;
+}
+
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// Keep only locks on details this page actually has, spelled the way the page spells them where it can.
+export function cleanLocks(page: PageData, raw: unknown): Lock[] {
+  const fields = pageFields(page);
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((l) => ({ field: String(l?.field ?? "").toLowerCase(), values: Array.isArray(l?.values) ? l.values.map((v: unknown) => String(v).trim()).filter(Boolean) : [] }))
+    .filter((l) => fields[l.field] && l.values.length)
+    .map((l) => ({ field: l.field, values: [...new Set(l.values.map((v: string) => fields[l.field].find((p) => same(p, v)) ?? v))].slice(0, 40) as string[] }));
+}
+
+export function meetsLocks(page: Pick<PageData, "name" | "kind">, offer: { name: string; seller?: string }, locks: Lock[]) {
+  const f = offerFields(page, offer);
+  const misses = locks.filter((l) => !(f[l.field] && l.values.some((v) => same(v, f[l.field]))));
+  return { ok: misses.length === 0, fields: f, misses };
+}
+
+export function describeLocks(locks: Lock[]) {
+  return locks.map((l) => `${l.field} ${l.values.length > 6 ? `${l.values.slice(0, 6).join(", ")}…` : l.values.join(", ")}`).join(" · ");
+}

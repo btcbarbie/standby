@@ -103,11 +103,12 @@ export const Draft = z.object({
     .nullable()
     .describe("If the owner wants Scout to start at a set time (a drop, a launch, a sale opening), that moment as YYYY-MM-DDTHH:MM in the owner's own time zone. Null otherwise."),
   expiresInDays: z.number().int().nullable().describe("How many days to keep watching, if the owner said or the page implies a deadline (like the day before an event). Null otherwise."),
-  anySeller: z.boolean().describe("True if any seller of this exact item is fine, false if the owner wants one particular seller (the store itself, or a seller they name)."),
-  onlySeller: z
-    .string()
-    .nullable()
-    .describe("If the owner wants one particular seller (e.g. 'from Marcus T.', 'only from the store itself'), that seller's name exactly as the page lists it. Null otherwise."),
+  anySeller: z.boolean().describe("True if any seller of this exact item is fine, false if it must be the store's own listing."),
+  locks: z
+    .array(z.object({ field: z.string(), values: z.array(z.string()) }))
+    .describe(
+      "Hard limits on the listing details this page has (the fields listed below, e.g. section, row, seller, size, colour). One entry per detail the owner REQUIRED, with every value they'd accept, spelled as the page spells it. A group like 'left wing' becomes every section in it, using the page's own map or legend. Only hard requirements: if they'd accept anything else as a fallback, don't lock it. Empty if none.",
+    ),
   scoutLine: z
     .string()
     .describe("What Scout says when it starts watching: one friendly sentence, at most 22 words, saying exactly what it will watch for. Don't say you'll buy or pay; the owner chooses that separately."),
@@ -119,6 +120,7 @@ export async function draftWatch(input: {
   pageText: string;
   options: { id: string; name: string; price: string; inStock: boolean }[];
   ticked?: string[];
+  fields?: Record<string, string[]>;
   now: string;
 }): Promise<Draft> {
   const system = `You help someone set up a watch: an AI will watch one web page for one specific thing they want.
@@ -132,7 +134,7 @@ ${PAGE_IS_DATA}`;
 The owner's words:
 "${input.wants}"
 ${input.ticked?.length ? `\nThe owner also tapped these exact options on the page (treat them as chosen, sold out or not): ${input.ticked.join("; ")}\n` : ""}
-Options listed in this page's product data (id · name · price · stock):
+${input.fields && Object.keys(input.fields).length ? `Details each listing on this page has (field: values seen now):\n${Object.entries(input.fields).map(([k, v]) => `- ${k}: ${v.join(", ")}`).join("\n")}\n\n` : ""}Options listed in this page's product data (id · name · price · stock):
 ${input.options.length ? input.options.map((o) => `- ${o.id} · ${o.name} · ${o.price} · ${o.inStock ? "in stock" : "sold out"}`).join("\n") : "(none)"}
 
 <page>

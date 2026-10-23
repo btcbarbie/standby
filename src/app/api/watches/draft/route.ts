@@ -7,6 +7,7 @@ import { fail, storePath } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { assertPublicUrl, canonicalProductUrl } from "@/lib/safeFetch";
 import { recallDraft, rememberDraft } from "@/lib/draftCache";
+import { cleanLocks, meetsLocks, pageFields } from "@/lib/extract";
 
 // Step 1 of a new watch: read the page once, lock onto the item, and turn the owner's words into a checklist.
 // Works with the demo stores and with real store pages (watch-and-alert only).
@@ -44,14 +45,14 @@ export async function POST(req: NextRequest) {
       pageText: page.text,
       options: pickable ? options.map((o) => ({ id: o.id, name: o.name, price: `$${(o.priceCents / 100).toFixed(2)}`, inStock: o.inStock })) : [],
       ticked: tapped.map((o) => o.name),
+      fields: pageFields(page),
       now: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(now)) ? String(now) : new Date().toISOString().slice(0, 16) + " UTC",
     });
     if (tapped.length) draft.matchingOptionIds = tapped.map((o) => o.id);
     // A start time is when to begin watching, not something the item has to match.
     if (draft.startAt) draft.mustHave = draft.mustHave.filter((m) => !/^(start|begin|starting|watch from|from \d)/i.test(m.text.trim()));
-    // A seller you named, as the page spells it, so the Vault can hold the watch to that seller in code.
-    const named = draft.onlySeller?.trim().toLowerCase();
-    const namedSeller = named ? (page.offers.find((o) => o.seller.trim().toLowerCase() === named)?.seller ?? null) : null;
+    // Details you required (a section, a row, a seller, a size...), held in code, on whatever details this site shows.
+    const locks = cleanLocks(page, draft.locks);
     const notBefore = startMoment(draft.startAt, Number(tzOffset) || 0);
     // If the AI missed a price you wrote ("drops to $22"), take the lowest $ amount from your words.
     if (draft.maxTotalUsd == null) {
@@ -86,12 +87,13 @@ export async function POST(req: NextRequest) {
     const availableNow =
       pickable && !notBefore && !(priceTalk && !budgetFromYou)
         ? matched
-            .filter((o) => o.inStock && (draft.maxTotalUsd == null || totalOf(o) / 100 <= draft.maxTotalUsd))
+            .filter((o) => o.inStock && meetsLocks(page, o, locks).ok && (draft.maxTotalUsd == null || totalOf(o) / 100 <= draft.maxTotalUsd))
             .map((o) => ({ name: o.name, priceCents: totalOf(o), url: o.url ?? page.url }))
         : [];
     return NextResponse.json({
       draft,
       notBefore,
+      locks,
       availableNow,
       today,
       budgetSuggested: !budgetFromYou && !!today,
@@ -101,7 +103,7 @@ export async function POST(req: NextRequest) {
         name: page.name,
         kind: page.kind,
         store: page.storeName,
-        storeSeller: namedSeller ?? (page.isDemo && page.storeName === "Wren" ? "Wren" : null),
+        storeSeller: page.isDemo && page.storeName === "Wren" ? "Wren" : null,
         isDemo: page.isDemo,
         // Only stores that accept AI buyers can be paid automatically. Real stores today: watch and alert.
         acceptsAiBuyers: page.isDemo,

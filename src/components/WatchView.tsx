@@ -208,6 +208,9 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                 <Row k="Mode" v={w.mode === "ALERT" ? "Alert me, I pay" : "Buy for me (pre-approved)"} />
                 <Row k="Item" v={w.itemName} />
                 {d.options && <Row k="Only these" v={d.options.join(" · ")} />}
+                {d.locks.map((l) => (
+                  <Row key={l.field} k={`Only ${l.field}`} v={l.values.join(", ")} />
+                ))}
                 <Row k="Seller" v={d.sellerName ? `${d.sellerName} only` : "Any seller"} />
                 <Row k="Quantity" v={String(w.quantity)} />
                 <Row k="Most in total" v={money(w.maxTotalCents)} />

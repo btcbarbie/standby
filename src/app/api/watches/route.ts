@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { currentOwner } from "@/lib/owner";
 import { DEMO_MAX_VISITS, DEMO_PACE_SEC, REAL_MAX_VISITS, REAL_PACE_SEC } from "@/lib/manners";
 import { prisma } from "@/lib/prisma";
+import { cleanLocks } from "@/lib/extract";
 import { say } from "@/lib/events";
 import { paypalConfigured } from "@/lib/paypal";
 import { startHold } from "@/lib/holds";
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
   // One seller only (the store itself, or a seller you named): the Vault holds the watch to them in code.
   const wanted = !body.anySeller ? String(body.seller ?? (page.isDemo && page.storeName === "Wren" ? "Wren" : "")) : "";
   const sellerName = wanted && page.offers.some((o) => o.seller === wanted) ? wanted : null;
+  const locks = cleanLocks(page, body.locks);
   // Ticked options are stored by name, so the same size from another seller still counts as the same option.
   const picked = page.kind === "TICKET" || !Array.isArray(body.optionIds) || body.optionIds.length === 0
     ? null
@@ -69,6 +71,8 @@ export async function POST(req: NextRequest) {
       imageUrl: page.image,
       sellerName,
       options: picked ? JSON.stringify(picked) : null,
+      // Details you required (section, row, seller, size...), checked in code by the watcher and the Vault.
+      mustMatch: locks.length ? JSON.stringify(locks) : null,
       kind: page.kind,
       quantity,
       maxTotalCents,

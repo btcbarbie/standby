@@ -10,6 +10,7 @@ import { captureHold, releaseHold, PayPalError } from "./paypal";
 import { placeOrder } from "./stores";
 import { money } from "./format";
 import { say } from "./events";
+import { describeLocks, meetsLocks, type Lock } from "./extract";
 
 // The watch loop. For each new offer that might fit, three independent checks:
 //   Scout (AI shopper), the Banker (AI reviewer, never sees Scout's answer) and the Vault (rules in code).
@@ -91,10 +92,14 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
 
     // Options you didn't tick aren't even looked at (the Vault checks it again before anything happens).
     const picked: string[] | null = m.options ? JSON.parse(m.options) : null;
+    // Details you required (section, row, seller, size...) are checked in code before any AI looks.
+    const locks: Lock[] = m.mustMatch ? JSON.parse(m.mustMatch) : [];
+    const pageInfo = { name: m.itemName, kind: m.kind as "TICKET" | "DRESS" | "ITEM" };
     const candidates = page.offers
       // Seller is a Vault rule, not a filter, so the Vault can show why another seller's offer was refused.
       .filter((o) => o.inStock)
       .filter((o) => !picked || picked.includes(o.name))
+      .filter((o) => !locks.length || meetsLocks(pageInfo, o, locks).ok)
       .filter((o) => o.priceCents * m.quantity <= m.maxTotalCents)
       .filter((o) => !seenKeys.has(`${o.id}:${o.priceCents}`))
       .sort((a, b) => a.priceCents - b.priceCents);
@@ -104,7 +109,8 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
       return;
     }
     if (candidates.length === 0) {
-      await say(m.id, "SCOUT", policy === "SLOW" ? `Checked the page: nothing new under ${money(m.maxTotalCents)}. The store asked for one visit a minute.` : `Checked the page: nothing new under ${money(m.maxTotalCents)}.`);
+      const what = locks.length ? `nothing new with ${describeLocks(locks)} under ${money(m.maxTotalCents)}` : `nothing new under ${money(m.maxTotalCents)}`;
+      await say(m.id, "SCOUT", policy === "SLOW" ? `Checked the page: ${what}. The store asked for one visit a minute.` : `Checked the page: ${what}.`);
       return;
     }
 

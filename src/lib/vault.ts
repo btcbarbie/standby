@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { quote } from "./stores";
 import { money } from "./format";
 import type { PageOffer } from "./page";
+import { meetsLocks, type Lock } from "./extract";
 
 // The Vault: hard limits written in code. No AI can argue past these.
 // Code checks the numbers and the identity of the item. The AIs check the meaning (left wing, green, size 8).
@@ -54,6 +55,20 @@ export async function runVault(owner: Owner, m: Mandate, offerId: string, quanti
       const name = pageOffer?.name ?? "";
       const ok = picked.includes(name);
       add("option", "The option you picked", ok, ok ? `${name}.` : `${name || "This offer"} isn't one you ticked (${picked.join(", ")}).`);
+    }
+    if (m.mustMatch) {
+      // Details you required, read from this listing's own data on the page. Code compares them; no AI judgement.
+      const locks: Lock[] = JSON.parse(m.mustMatch);
+      const r = meetsLocks({ name: m.itemName, kind: m.kind as "TICKET" | "DRESS" | "ITEM" }, { name: pageOffer?.name ?? "", seller: q.seller }, locks);
+      add(
+        "locks",
+        "The details you required",
+        r.ok,
+        (r.ok
+          ? locks.map((l) => `${l.field} ${r.fields[l.field]}`).join(", ")
+          : r.misses.map((l) => `${l.field} is ${r.fields[l.field] ?? "not shown"}, you asked for ${l.values.join(", ")}`).join("; ")
+        ).replace(/\.?$/, "."),
+      );
     }
     add("qty", "Quantity", quantity === m.quantity, quantity === m.quantity ? `${quantity}, as asked.` : `${quantity} asked for, you said ${m.quantity}.`);
     add("stock", "Still available", q.stock >= quantity, q.stock >= quantity ? "In stock." : "Sold out.");

@@ -5,7 +5,7 @@ import Character from "./Character";
 import { AppHeader, Button, Card } from "./ui";
 import BackLink from "./BackLink";
 import type { Draft } from "@/lib/ai";
-import type { Extracted } from "@/lib/extract";
+import type { Extracted, Lock } from "@/lib/extract";
 
 type Item = {
   url: string;
@@ -103,6 +103,7 @@ export default function NewWatch({
   const [notBefore, setNotBefore] = useState<string | null>(null);
   const [today, setToday] = useState<{ totalCents: number; priceCents: number; feeCents: number; feesKnown: boolean } | null>(null);
   const [budgetSuggested, setBudgetSuggested] = useState(false);
+  const [locks, setLocks] = useState<Lock[]>([]);
   const [availableNow, setAvailableNow] = useState<{ name: string; priceCents: number; url: string }[]>([]);
   const [showAllOptions, setShowAllOptions] = useState(false);
 
@@ -134,6 +135,7 @@ export default function NewWatch({
       setNotBefore(json.notBefore ?? null);
       setToday(json.today ?? null);
       setBudgetSuggested(!!json.budgetSuggested);
+      setLocks(json.locks ?? []);
       setAvailableNow(json.availableNow ?? []);
       setShowAllOptions(false);
     } catch (e) {
@@ -150,7 +152,7 @@ export default function NewWatch({
       const res = await fetch("/api/watches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: item!.url, wants, title, mustHave: mustHave.map((m) => m.text), optionIds: picked, seller: item!.storeSeller, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode, notBefore }),
+        body: JSON.stringify({ url: item!.url, wants, title, mustHave: mustHave.map((m) => m.text), optionIds: picked, locks, seller: item!.storeSeller, maxTotalUsd: Number(maxTotal), quantity: Number(quantity), expiresInDays: Number(days), anySeller, mode, notBefore }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
@@ -389,6 +391,23 @@ export default function NewWatch({
                       : ` · sold by ${item.storeSeller} only`
                     : " · any reseller on this event page"}
               </div>
+              {locks.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted">Only listings with</div>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {locks.map((l) => (
+                      <span key={l.field} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1 text-sm">
+                        <span className="font-semibold capitalize">{l.field}</span>
+                        <span className="text-muted">{l.values.join(", ")}</span>
+                        <button type="button" aria-label={`Remove the ${l.field} limit`} onClick={() => setLocks(locks.filter((x) => x.field !== l.field))} className="text-muted hover:text-bad">
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted">Read from each listing&apos;s own details on the page. Scout skips anything else, and the Vault checks again before paying.</p>
+                </div>
+              )}
               {item.storeSeller && (
                 <label className="mt-2 flex items-center gap-2 text-xs text-muted">
                   <input type="checkbox" checked={anySeller} onChange={(e) => setAnySeller(e.target.checked)} />
