@@ -91,18 +91,19 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className="mx-auto max-w-6xl px-4 pb-16 pt-10 lg:pb-20 lg:pt-14">
-          <div className="text-center">
+        {/* Hero: what you do (left) and how Standby decides (right), side by side on wide screens. */}
+        <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-14 pt-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-12 lg:pb-12 lg:pt-6">
+          <div className="text-center lg:text-left">
             <p className="inline-flex items-center gap-2 rounded-full bg-scout-soft px-3 py-1 text-xs font-semibold text-[#9a5d00]">
               <span className="h-1.5 w-1.5 rounded-full bg-scout" /> Your AI shopper. Your rules. Your money.
             </p>
-            <h1 className="mx-auto mt-4 max-w-4xl text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">Give Standby the exact shopping link.</h1>
-            <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted">
+            <h1 className="mt-4 text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">Give Standby the exact shopping link.</h1>
+            <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted lg:mx-0">
               It watches the page diligently and acts when the right opportunity comes along, within the limits and requirements you set. Two independent
               AI checks review the purchase, while built-in safeguards enforce your limits before a purchase can proceed.
             </p>
             {/* The first thing to do: hand Standby a link. It goes straight to New watch with the link filled in. */}
-            <form action="/app/new" method="get" className="mx-auto mt-7 max-w-2xl">
+            <form action="/app/new" method="get" className="mx-auto mt-7 max-w-2xl lg:mx-0">
               <label htmlFor="hero-url" className="sr-only">
                 Paste a shopping link
               </label>
@@ -127,16 +128,14 @@ export default function Landing() {
               </div>
               <p className="mt-2 text-xs text-muted">Any shopping page that accepts PayPal. Standby reads it and shows you what it found.</p>
             </form>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm">
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm lg:justify-start">
               <span className="text-muted">No link handy?</span>
               <Link href="/start?next=/app" className="rounded-xl bg-ink px-5 py-2.5 font-semibold text-white hover:bg-black">
                 Try the demo
               </Link>
             </div>
           </div>
-          <div className="mt-10">
-            <StoryBoard scoutMaker={twoCompanies ? "Gemini" : "Claude"} />
-          </div>
+          <StoryBoard scoutMaker={twoCompanies ? "Gemini" : "Claude"} />
         </section>
 
         <section className="border-y border-line bg-bg" aria-labelledby="stories-title">

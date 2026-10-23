@@ -6,7 +6,7 @@ import Character, { CAST, type Who } from "./Character";
 function Down({ className = "" }: { className?: string }) {
   return (
     <div className={`flex justify-center text-[#b8bfcc] ${className}`} aria-hidden>
-      <svg viewBox="0 0 24 32" className="h-8 w-6">
+      <svg viewBox="0 0 24 32" className="h-6 w-5">
         <path d="M12 2v26M5 21l7 8 7-8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
@@ -16,7 +16,7 @@ function Down({ className = "" }: { className?: string }) {
 // One line splitting into (or joining from) three columns, with a label on it. Wide screens only.
 function Branch({ label, join = false }: { label: string; join?: boolean }) {
   return (
-    <div className="relative hidden h-12 lg:block" aria-hidden>
+    <div className="relative hidden h-9 lg:block" aria-hidden>
       <div className={`absolute left-1/2 w-px bg-[#c9cfd9] ${join ? "bottom-0 top-1/2" : "top-0 h-1/2"}`} />
       <div className="absolute left-[16.66%] right-[16.66%] top-1/2 h-px bg-[#c9cfd9]" />
       {[16.66, 50, 83.33].map((x) => (
@@ -39,24 +39,73 @@ function Tag({ children, tone }: { children: React.ReactNode; tone: "ai" | "code
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${cls}`}>{children}</span>;
 }
 
-// One part of the team: who it is, what it is (AI, code, you), and its one job.
-function Member({ who, tag, tone, text, className = "" }: { who: Who; tag: string; tone: "ai" | "code" | "human"; text: string; className?: string }) {
+// One part of the team, as a squarish card: the character on top, then who it is, what it is (AI, code, you), and its job.
+function Member({
+  who,
+  tag,
+  tone,
+  text,
+  className = "",
+  children,
+}: {
+  who: Who;
+  tag: string;
+  tone: "ai" | "code" | "human";
+  text: string;
+  className?: string;
+  children?: React.ReactNode;
+}) {
   const c = CAST[who];
   return (
-    <article className={`flex items-start gap-3 rounded-2xl border-2 p-4 ${className}`} style={{ borderColor: `${c.color}55`, background: who === "you" ? "#fff" : c.soft }}>
-      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white shadow-sm">
+    <article
+      className={`flex flex-col items-center rounded-2xl border-2 p-3 text-center ${className}`}
+      style={{ borderColor: `${c.color}55`, background: who === "you" ? "#fff" : c.soft }}
+    >
+      <div className="grid h-12 w-12 place-items-center rounded-xl bg-white shadow-sm">
         <Character who={who} mood={who === "vault" ? "stern" : who === "banker" ? "thinking" : "happy"} size={40} />
       </div>
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <h3 className="text-base font-black uppercase tracking-tight" style={{ color: c.color }}>
-            {c.name}
-          </h3>
-          <Tag tone={tone}>{tag}</Tag>
-        </div>
-        <p className="mt-1 text-sm leading-snug text-ink/85">{text}</p>
+      <h3 className="mt-1.5 text-[15px] font-black uppercase leading-none tracking-tight" style={{ color: c.color }}>
+        {c.name}
+      </h3>
+      <div className="mt-1">
+        <Tag tone={tone}>{tag}</Tag>
       </div>
+      <p className="mt-1.5 text-xs leading-snug text-ink/85">{text}</p>
+      {children}
     </article>
+  );
+}
+
+// Scout's own little browser: paste a link here too.
+function ScoutBrowser() {
+  return (
+    <form action="/app/new" method="get" className="mt-3 w-full overflow-hidden rounded-xl border border-[#f3cf96] bg-white text-left">
+      <div className="flex items-center gap-1 border-b border-line bg-[#fbfaf7] px-2 py-1" aria-hidden>
+        <span className="h-1.5 w-1.5 rounded-full bg-[#ff5f57]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-[#febc2e]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-[#28c840]" />
+        <span className="ml-1 text-[10px] font-medium text-muted">Scout&apos;s browser</span>
+      </div>
+      <div className="flex gap-1 p-1.5">
+        <label htmlFor="scout-url" className="sr-only">
+          Paste a shopping link for Scout
+        </label>
+        <input
+          id="scout-url"
+          name="url"
+          type="text"
+          inputMode="url"
+          autoComplete="off"
+          spellCheck={false}
+          required
+          placeholder="Paste a link…"
+          className="w-full min-w-0 flex-1 rounded-lg border border-line px-2 py-1.5 text-xs outline-none focus:border-ink"
+        />
+        <button type="submit" aria-label="Send Scout" className="shrink-0 rounded-lg bg-scout px-2.5 py-1.5 text-xs font-bold text-white hover:brightness-95">
+          Send
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -68,54 +117,54 @@ const OUTCOMES = [
 
 export default function StoryBoard({ scoutMaker }: { scoutMaker: string }) {
   return (
-    <div className="rounded-[1.5rem] border border-line bg-[#fbfaf7] px-4 py-6 sm:px-6 lg:px-8" role="group" aria-label="How Standby pays">
+    <div className="rounded-[1.5rem] border border-line bg-[#fbfaf7] px-4 py-4 sm:px-5" role="group" aria-label="How Standby pays">
       <Member
         who="you"
         tag="Human"
         tone="human"
-        className="mx-auto max-w-2xl"
+        className="mx-auto max-w-md"
         text="Copy the link to the exact product or ticket you want, give it to Scout, and set your conditions, price limit, and deadline."
       />
 
       <Branch label="Your rules go to each one separately" />
-      <Down className="my-1.5 lg:hidden" />
+      <Down className="my-1 lg:hidden" />
 
       {/* The three checks: same rules, no contact with each other */}
-      <div className="grid gap-3 lg:grid-cols-3">
-        <Member who="scout" tag={`AI · ${scoutMaker}`} tone="ai" text="Monitors your chosen page and alerts when your conditions are met." />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Member who="scout" tag={`AI · ${scoutMaker}`} tone="ai" text="Monitors your chosen page and alerts when your conditions are met.">
+          <ScoutBrowser />
+        </Member>
         <Member who="banker" tag="AI · Claude" tone="ai" text="Independently checks the offer against your original instructions before approving it." />
         <Member who="vault" tag="Hardcoded rules · Not AI" tone="code" text="Enforces your purchasing rules and blocks any offer that violates them." />
       </div>
 
       <Branch label="Do all three agree?" join />
-      <Down className="my-1.5 lg:hidden" />
+      <Down className="my-1 lg:hidden" />
 
       <ul className="grid gap-2 sm:grid-cols-3">
         {OUTCOMES.map((o) => (
-          <li key={o.title} className={`flex items-center gap-2.5 rounded-xl border-2 px-3 py-2 ${o.cls}`}>
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-sm font-black" aria-hidden>
-              {o.icon}
+          <li key={o.title} className={`rounded-xl border-2 px-2 py-1.5 text-center ${o.cls}`}>
+            <span className="block text-[13px] font-bold">
+              <span aria-hidden>{o.icon} </span>
+              {o.title}
             </span>
-            <span>
-              <span className="block text-sm font-bold">{o.title}</span>
-              <span className="block text-[11px] opacity-80">{o.note}</span>
-            </span>
+            <span className="block text-[11px] leading-tight opacity-80">{o.note}</span>
           </li>
         ))}
       </ul>
 
-      <Down className="my-1.5" />
+      <Down className="my-0.5" />
 
-      {/* PayPal */}
-      <div className="mx-auto flex max-w-2xl items-center gap-3 rounded-2xl border-2 border-[#b9d4f5] bg-white p-4">
-        <div className="shrink-0 text-xl font-black italic tracking-tight">
-          <span className="text-[#003087]">Pay</span>
-          <span className="text-[#0070e0]">Pal</span>
+      {/* PayPal, in PayPal's own colours */}
+      <div className="mx-auto flex max-w-md flex-col items-center rounded-2xl bg-gradient-to-br from-[#003087] to-[#0070e0] p-3 text-center text-white shadow-md">
+        <div className="flex items-center gap-2">
+          <span className="rounded-lg bg-white px-2.5 py-0.5 text-lg font-black italic tracking-tight shadow-sm">
+            <span className="text-[#003087]">Pay</span>
+            <span className="text-[#009cde]">Pal</span>
+          </span>
+          <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Payment</span>
         </div>
-        <div className="min-w-0 border-l border-line pl-3">
-          <Tag tone="pay">Payment</Tag>
-          <p className="mt-1 text-sm leading-snug text-ink/85">Processes payment only when all three checks pass.</p>
-        </div>
+        <p className="mt-1.5 text-xs leading-snug text-white/90">Processes payment only when all three checks pass.</p>
       </div>
     </div>
   );
