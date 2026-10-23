@@ -1,175 +1,141 @@
 import Character, { CAST, type Who } from "./Character";
 
-// The homepage hero: Standby's whole payment workflow as one picture.
-// You set the rules → Scout, Banker and Vault each check them on their own → one outcome → PayPal.
+// The homepage hero's right side: how Standby decides, as one calm vertical flow.
+// You set the rules → Scout, the Banker and the Vault each check them on their own → the decision → PayPal.
 
-function Down({ className = "" }: { className?: string }) {
-  return (
-    <div className={`flex justify-center text-[#b8bfcc] ${className}`} aria-hidden>
-      <svg viewBox="0 0 24 32" className="h-6 w-5">
-        <path d="M12 2v26M5 21l7 8 7-8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </div>
-  );
-}
-
-// One line splitting into (or joining from) three columns, with a label on it. Wide screens only.
-function Branch({ label, join = false }: { label: string; join?: boolean }) {
-  return (
-    <div className="relative hidden h-12 lg:block" aria-hidden>
-      <div className={`absolute left-1/2 w-px bg-[#c9cfd9] ${join ? "bottom-0 top-1/2" : "top-0 h-1/2"}`} />
-      <div className="absolute left-[16.66%] right-[16.66%] top-1/2 h-px bg-[#c9cfd9]" />
-      {[16.66, 50, 83.33].map((x) => (
-        <div key={x} className={`absolute w-px bg-[#c9cfd9] ${join ? "top-0 h-1/2" : "bottom-0 top-1/2"}`} style={{ left: `${x}%` }} />
-      ))}
-      <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-line bg-white px-3 py-0.5 text-[11px] font-semibold text-ink/80 shadow-sm">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function Tag({ children, tone }: { children: React.ReactNode; tone: "ai" | "code" | "human" | "pay" }) {
+function Tag({ children, tone }: { children: React.ReactNode; tone: "ai" | "code" | "human" }) {
   const cls = {
     ai: "bg-ink text-white",
     code: "bg-[#fde2df] text-[#b42318]",
     human: "bg-brand-soft text-brand",
-    pay: "bg-[#e8f1fd] text-[#003087]",
   }[tone];
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${cls}`}>{children}</span>;
 }
 
-// One part of the team, as a squarish card: the character on top, then who it is, what it is (AI, code, you), and its job.
-function Member({
-  who,
-  tag,
-  tone,
-  text,
-  className = "",
-  children,
-}: {
-  who: Who;
-  tag: string | string[];
-  tone: "ai" | "code" | "human";
-  text: string;
-  className?: string;
-  children?: React.ReactNode;
-}) {
-  const c = CAST[who];
+// One numbered step on the flow line.
+function Step({ n, title, children, last = false }: { n: number; title: string; children: React.ReactNode; last?: boolean }) {
   return (
-    <article
-      className={`flex flex-col items-center rounded-2xl border-2 px-4 py-5 text-center ${className}`}
-      style={{ borderColor: `${c.color}55`, background: who === "you" ? "#fff" : c.soft }}
-    >
-      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white shadow-sm">
-        <Character who={who} mood={who === "vault" ? "stern" : who === "banker" ? "thinking" : "happy"} size={46} />
-      </div>
-      <h3 className="mt-3 text-base font-black uppercase leading-none tracking-tight" style={{ color: c.color }}>
-        {c.name}
-      </h3>
-      <div className="mt-2 flex flex-wrap justify-center gap-1">
-        {(Array.isArray(tag) ? tag : [tag]).map((t) => (
-          <Tag key={t} tone={tone}>
-            {t}
-          </Tag>
-        ))}
-      </div>
-      <p className="mt-3 text-[13px] leading-relaxed text-ink/85">{text}</p>
-      {children}
-    </article>
+    <li className="relative pl-11">
+      {!last && <span className="absolute bottom-[-1rem] left-[13px] top-8 w-px bg-[#d6dbe3]" aria-hidden />}
+      <span className="absolute left-0 top-0.5 grid h-7 w-7 place-items-center rounded-full border border-line bg-white text-xs font-bold text-muted shadow-sm" aria-hidden>
+        {n}
+      </span>
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</div>
+      <div className="mt-2">{children}</div>
+    </li>
   );
 }
 
-// Scout's own little browser: paste a link here too.
+// One of the three checks, as a row: the character, who it is, what it is (AI or code), and its job.
+function Check({ who, tags, tone, text, children }: { who: Who; tags: string[]; tone: "ai" | "code"; text: string; children?: React.ReactNode }) {
+  const c = CAST[who];
+  return (
+    <div className="flex gap-3.5 px-4 py-3">
+      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl" style={{ background: c.soft }}>
+        <Character who={who} mood={who === "vault" ? "stern" : who === "banker" ? "thinking" : "happy"} size={40} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[15px] font-black uppercase tracking-tight" style={{ color: c.color }}>
+            {c.name}
+          </span>
+          {tags.map((t) => (
+            <Tag key={t} tone={tone}>
+              {t}
+            </Tag>
+          ))}
+        </div>
+        <p className="mt-1 text-sm leading-relaxed text-ink/80">{text}</p>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Scout's own little link box, so you can hand Scout a page right here too.
 function ScoutBrowser() {
   return (
-    <form action="/app/new" method="get" className="mt-4 w-full overflow-hidden rounded-xl border border-[#f3cf96] bg-white text-left">
-      <div className="flex items-center gap-1 border-b border-line bg-[#fbfaf7] px-2 py-1" aria-hidden>
-        <span className="h-1.5 w-1.5 rounded-full bg-[#ff5f57]" />
-        <span className="h-1.5 w-1.5 rounded-full bg-[#febc2e]" />
-        <span className="h-1.5 w-1.5 rounded-full bg-[#28c840]" />
-        <span className="ml-1 text-[10px] font-medium text-muted">Scout&apos;s browser</span>
-      </div>
-      <div className="flex gap-1 p-1.5">
-        <label htmlFor="scout-url" className="sr-only">
-          Paste a shopping link for Scout
-        </label>
-        <input
-          id="scout-url"
-          name="url"
-          type="text"
-          inputMode="url"
-          autoComplete="off"
-          spellCheck={false}
-          required
-          placeholder="Paste a link…"
-          className="w-full min-w-0 flex-1 rounded-lg border border-line px-2 py-1.5 text-xs outline-none focus:border-ink"
-        />
-        <button type="submit" aria-label="Send Scout" className="shrink-0 rounded-lg bg-scout px-2.5 py-1.5 text-xs font-bold text-white hover:brightness-95">
-          Send
-        </button>
-      </div>
+    <form action="/app/new" method="get" className="mt-2.5 flex max-w-sm gap-1.5">
+      <label htmlFor="scout-url" className="sr-only">
+        Paste a shopping link for Scout
+      </label>
+      <input
+        id="scout-url"
+        name="url"
+        type="text"
+        inputMode="url"
+        autoComplete="off"
+        spellCheck={false}
+        required
+        placeholder="Paste a link for Scout…"
+        className="min-w-0 flex-1 rounded-lg border border-[#f3cf96] bg-white px-2.5 py-1.5 text-xs outline-none focus:border-scout"
+      />
+      <button type="submit" className="shrink-0 rounded-lg bg-scout px-3 py-1.5 text-xs font-bold text-white hover:brightness-95">
+        Send Scout
+      </button>
     </form>
   );
 }
 
 const OUTCOMES = [
-  { title: "Yes → Purchase", note: "All three agree", cls: "border-[#a6e9c1] bg-good-soft text-good", icon: "✓" },
-  { title: "No → Block or skip", note: "The Vault says no, or both AIs pass", cls: "border-[#f9c4be] bg-bad-soft text-bad", icon: "✕" },
-  { title: "Unsure → Ask you", note: "Scout and Banker disagree", cls: "border-[#c7d6ff] bg-brand-soft text-brand", icon: "?" },
+  { title: "Yes → Purchase", note: "All three agree", cls: "bg-good-soft text-good", icon: "✓" },
+  { title: "No → Block or skip", note: "The Vault says no, or both AIs pass", cls: "bg-bad-soft text-bad", icon: "✕" },
+  { title: "Unsure → Ask you", note: "Scout and Banker disagree", cls: "bg-brand-soft text-brand", icon: "?" },
 ];
 
 export default function StoryBoard({ scoutMaker }: { scoutMaker: string }) {
   return (
-    <div className="rounded-[1.75rem] border border-line bg-[#fbfaf7] p-5 sm:p-7" role="group" aria-label="How Standby pays">
-      <Member
-        who="you"
-        tag="Human"
-        tone="human"
-        className="mx-auto max-w-md"
-        text="Copy the link to the exact product or ticket you want, give it to Scout, and set your conditions, price limit, and deadline."
-      />
+    <ol className="space-y-4" aria-label="How Standby pays">
+      <Step n={1} title="You">
+        <div className="flex items-start gap-3.5 rounded-2xl border border-line bg-white px-4 py-3.5 shadow-sm">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-soft">
+            <Character who="you" size={40} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[15px] font-black uppercase tracking-tight text-brand">You</span>
+              <Tag tone="human">Human</Tag>
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-ink/80">
+              Copy the link to the exact product or ticket you want, give it to Scout, and set your conditions, price limit, and deadline.
+            </p>
+          </div>
+        </div>
+      </Step>
 
-      <Branch label="Your rules go to each one separately" />
-      <Down className="my-2 lg:hidden" />
+      <Step n={2} title="Three separate checks · each gets your rules on its own">
+        <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
+          <Check who="scout" tags={[`AI · ${scoutMaker}`]} tone="ai" text="Monitors your chosen page and alerts when your conditions are met.">
+            <ScoutBrowser />
+          </Check>
+          <Check who="banker" tags={["AI · Claude"]} tone="ai" text="Independently checks the offer against your original instructions before approving it." />
+          <Check who="vault" tags={["Hardcoded rules", "Not AI"]} tone="code" text="Enforces your purchasing rules and blocks any offer that violates them." />
+        </div>
+      </Step>
 
-      {/* The three checks: same rules, no contact with each other */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Member who="scout" tag={`AI · ${scoutMaker}`} tone="ai" text="Monitors your chosen page and alerts when your conditions are met.">
-          <ScoutBrowser />
-        </Member>
-        <Member who="banker" tag="AI · Claude" tone="ai" text="Independently checks the offer against your original instructions before approving it." />
-        <Member who="vault" tag={["Hardcoded rules", "Not AI"]} tone="code" text="Enforces your purchasing rules and blocks any offer that violates them." />
-      </div>
+      <Step n={3} title="Do all three agree?">
+        <ul className="grid gap-2 sm:grid-cols-3">
+          {OUTCOMES.map((o) => (
+            <li key={o.title} className={`rounded-xl px-3 py-2 ${o.cls}`}>
+              <span className="block text-[13px] font-bold">
+                <span aria-hidden>{o.icon} </span>
+                {o.title}
+              </span>
+              <span className="mt-0.5 block text-[11px] leading-snug opacity-80">{o.note}</span>
+            </li>
+          ))}
+        </ul>
+      </Step>
 
-      <Branch label="Do all three agree?" join />
-      <Down className="my-2 lg:hidden" />
-
-      <ul className="grid gap-4 sm:grid-cols-3">
-        {OUTCOMES.map((o) => (
-          <li key={o.title} className={`rounded-xl border-2 px-3 py-2.5 text-center ${o.cls}`}>
-            <span className="block text-[13px] font-bold">
-              <span aria-hidden>{o.icon} </span>
-              {o.title}
-            </span>
-            <span className="mt-0.5 block text-[11px] leading-snug opacity-80">{o.note}</span>
-          </li>
-        ))}
-      </ul>
-
-      <Down className="my-2" />
-
-      {/* PayPal, in PayPal's own colours */}
-      <div className="mx-auto flex max-w-md flex-col items-center rounded-2xl bg-gradient-to-br from-[#003087] to-[#0070e0] px-5 py-4 text-center text-white shadow-md">
-        <div className="flex items-center gap-2">
-          <span className="rounded-lg bg-white px-2.5 py-0.5 text-lg font-black italic tracking-tight shadow-sm">
+      <Step n={4} title="Payment" last>
+        <div className="flex items-center gap-3.5 rounded-2xl bg-gradient-to-br from-[#003087] to-[#0070e0] px-4 py-3.5 text-white shadow-md">
+          <span className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-lg font-black italic tracking-tight shadow-sm">
             <span className="text-[#003087]">Pay</span>
             <span className="text-[#009cde]">Pal</span>
           </span>
-          <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Payment</span>
+          <p className="text-sm leading-relaxed text-white/90">Processes payment only when all three checks pass.</p>
         </div>
-        <p className="mt-2 text-[13px] leading-relaxed text-white/90">Processes payment only when all three checks pass.</p>
-      </div>
-    </div>
+      </Step>
+    </ol>
   );
 }
