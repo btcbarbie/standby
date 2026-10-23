@@ -113,21 +113,26 @@ export default function StoryBoard({ scoutMaker }: { scoutMaker: string }) {
         </div>
       </Step>
 
-      <Step n={3} title="Do all three agree?">
-        <ul className="grid gap-2 sm:grid-cols-3">
+      <Step n={3} title="Do all three agree? Only a yes reaches PayPal" last>
+        <ul className="grid grid-cols-3 gap-2">
           {OUTCOMES.map((o) => (
-            <li key={o.title} className={`rounded-xl px-3 py-2 ${o.cls}`}>
-              <span className="block text-[13px] font-bold">
+            <li key={o.title} className={`rounded-lg px-2.5 py-1.5 ${o.cls}`}>
+              <span className="block text-xs font-bold leading-tight">
                 <span aria-hidden>{o.icon} </span>
                 {o.title}
               </span>
-              <span className="mt-0.5 block text-[11px] leading-snug opacity-80">{o.note}</span>
+              <span className="mt-0.5 block text-[10px] leading-snug opacity-80">{o.note}</span>
             </li>
           ))}
         </ul>
-      </Step>
-
-      <Step n={4} title="Payment" last>
+        {/* The one path to money: Yes, straight down into PayPal. */}
+        <div className="grid grid-cols-3 gap-2" aria-hidden>
+          <div className="flex justify-center">
+            <svg viewBox="0 0 16 34" className="h-8 w-4 text-good">
+              <path d="M8 0v28M2.5 22.5 8 29l5.5-6.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
         <div className="flex items-center gap-3.5 rounded-2xl bg-gradient-to-br from-[#003087] to-[#0070e0] px-4 py-3.5 text-white shadow-md">
           <span className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-lg font-black italic tracking-tight shadow-sm">
             <span className="text-[#003087]">Pay</span>
