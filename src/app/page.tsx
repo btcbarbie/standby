@@ -92,7 +92,7 @@ export default function Landing() {
 
       <main>
         {/* Hero: what you do (left) and how Standby decides (right), side by side on wide screens. */}
-        <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 pb-14 pt-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-12 lg:pb-12 lg:pt-6">
+        <section className="mx-auto grid max-w-[84rem] items-center gap-10 px-4 pb-14 pt-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-14 lg:pb-14 lg:pt-8">
           <div className="text-center lg:text-left">
             <p className="inline-flex items-center gap-2 rounded-full bg-scout-soft px-3 py-1 text-xs font-semibold text-[#9a5d00]">
               <span className="h-1.5 w-1.5 rounded-full bg-scout" /> Your AI shopper. Your rules. Your money.

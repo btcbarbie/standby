@@ -16,7 +16,7 @@ function Down({ className = "" }: { className?: string }) {
 // One line splitting into (or joining from) three columns, with a label on it. Wide screens only.
 function Branch({ label, join = false }: { label: string; join?: boolean }) {
   return (
-    <div className="relative hidden h-9 lg:block" aria-hidden>
+    <div className="relative hidden h-12 lg:block" aria-hidden>
       <div className={`absolute left-1/2 w-px bg-[#c9cfd9] ${join ? "bottom-0 top-1/2" : "top-0 h-1/2"}`} />
       <div className="absolute left-[16.66%] right-[16.66%] top-1/2 h-px bg-[#c9cfd9]" />
       {[16.66, 50, 83.33].map((x) => (
@@ -49,7 +49,7 @@ function Member({
   children,
 }: {
   who: Who;
-  tag: string;
+  tag: string | string[];
   tone: "ai" | "code" | "human";
   text: string;
   className?: string;
@@ -58,19 +58,23 @@ function Member({
   const c = CAST[who];
   return (
     <article
-      className={`flex flex-col items-center rounded-2xl border-2 p-3 text-center ${className}`}
+      className={`flex flex-col items-center rounded-2xl border-2 px-4 py-5 text-center ${className}`}
       style={{ borderColor: `${c.color}55`, background: who === "you" ? "#fff" : c.soft }}
     >
-      <div className="grid h-12 w-12 place-items-center rounded-xl bg-white shadow-sm">
-        <Character who={who} mood={who === "vault" ? "stern" : who === "banker" ? "thinking" : "happy"} size={40} />
+      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white shadow-sm">
+        <Character who={who} mood={who === "vault" ? "stern" : who === "banker" ? "thinking" : "happy"} size={46} />
       </div>
-      <h3 className="mt-1.5 text-[15px] font-black uppercase leading-none tracking-tight" style={{ color: c.color }}>
+      <h3 className="mt-3 text-base font-black uppercase leading-none tracking-tight" style={{ color: c.color }}>
         {c.name}
       </h3>
-      <div className="mt-1">
-        <Tag tone={tone}>{tag}</Tag>
+      <div className="mt-2 flex flex-wrap justify-center gap-1">
+        {(Array.isArray(tag) ? tag : [tag]).map((t) => (
+          <Tag key={t} tone={tone}>
+            {t}
+          </Tag>
+        ))}
       </div>
-      <p className="mt-1.5 text-xs leading-snug text-ink/85">{text}</p>
+      <p className="mt-3 text-[13px] leading-relaxed text-ink/85">{text}</p>
       {children}
     </article>
   );
@@ -79,7 +83,7 @@ function Member({
 // Scout's own little browser: paste a link here too.
 function ScoutBrowser() {
   return (
-    <form action="/app/new" method="get" className="mt-3 w-full overflow-hidden rounded-xl border border-[#f3cf96] bg-white text-left">
+    <form action="/app/new" method="get" className="mt-4 w-full overflow-hidden rounded-xl border border-[#f3cf96] bg-white text-left">
       <div className="flex items-center gap-1 border-b border-line bg-[#fbfaf7] px-2 py-1" aria-hidden>
         <span className="h-1.5 w-1.5 rounded-full bg-[#ff5f57]" />
         <span className="h-1.5 w-1.5 rounded-full bg-[#febc2e]" />
@@ -117,7 +121,7 @@ const OUTCOMES = [
 
 export default function StoryBoard({ scoutMaker }: { scoutMaker: string }) {
   return (
-    <div className="rounded-[1.5rem] border border-line bg-[#fbfaf7] px-4 py-4 sm:px-5" role="group" aria-label="How Standby pays">
+    <div className="rounded-[1.75rem] border border-line bg-[#fbfaf7] p-5 sm:p-7" role="group" aria-label="How Standby pays">
       <Member
         who="you"
         tag="Human"
@@ -127,36 +131,36 @@ export default function StoryBoard({ scoutMaker }: { scoutMaker: string }) {
       />
 
       <Branch label="Your rules go to each one separately" />
-      <Down className="my-1 lg:hidden" />
+      <Down className="my-2 lg:hidden" />
 
       {/* The three checks: same rules, no contact with each other */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Member who="scout" tag={`AI · ${scoutMaker}`} tone="ai" text="Monitors your chosen page and alerts when your conditions are met.">
           <ScoutBrowser />
         </Member>
         <Member who="banker" tag="AI · Claude" tone="ai" text="Independently checks the offer against your original instructions before approving it." />
-        <Member who="vault" tag="Hardcoded rules · Not AI" tone="code" text="Enforces your purchasing rules and blocks any offer that violates them." />
+        <Member who="vault" tag={["Hardcoded rules", "Not AI"]} tone="code" text="Enforces your purchasing rules and blocks any offer that violates them." />
       </div>
 
       <Branch label="Do all three agree?" join />
-      <Down className="my-1 lg:hidden" />
+      <Down className="my-2 lg:hidden" />
 
-      <ul className="grid gap-2 sm:grid-cols-3">
+      <ul className="grid gap-4 sm:grid-cols-3">
         {OUTCOMES.map((o) => (
-          <li key={o.title} className={`rounded-xl border-2 px-2 py-1.5 text-center ${o.cls}`}>
+          <li key={o.title} className={`rounded-xl border-2 px-3 py-2.5 text-center ${o.cls}`}>
             <span className="block text-[13px] font-bold">
               <span aria-hidden>{o.icon} </span>
               {o.title}
             </span>
-            <span className="block text-[11px] leading-tight opacity-80">{o.note}</span>
+            <span className="mt-0.5 block text-[11px] leading-snug opacity-80">{o.note}</span>
           </li>
         ))}
       </ul>
 
-      <Down className="my-0.5" />
+      <Down className="my-2" />
 
       {/* PayPal, in PayPal's own colours */}
-      <div className="mx-auto flex max-w-md flex-col items-center rounded-2xl bg-gradient-to-br from-[#003087] to-[#0070e0] p-3 text-center text-white shadow-md">
+      <div className="mx-auto flex max-w-md flex-col items-center rounded-2xl bg-gradient-to-br from-[#003087] to-[#0070e0] px-5 py-4 text-center text-white shadow-md">
         <div className="flex items-center gap-2">
           <span className="rounded-lg bg-white px-2.5 py-0.5 text-lg font-black italic tracking-tight shadow-sm">
             <span className="text-[#003087]">Pay</span>
@@ -164,7 +168,7 @@ export default function StoryBoard({ scoutMaker }: { scoutMaker: string }) {
           </span>
           <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Payment</span>
         </div>
-        <p className="mt-1.5 text-xs leading-snug text-white/90">Processes payment only when all three checks pass.</p>
+        <p className="mt-2 text-[13px] leading-relaxed text-white/90">Processes payment only when all three checks pass.</p>
       </div>
     </div>
   );
