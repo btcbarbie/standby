@@ -171,7 +171,7 @@ export default function Scene({
               Not this one
             </Button>
             {canPay ? (
-              <Button disabled={busy} onClick={() => onFound("pay")} className="bg-[#0070e0] hover:bg-[#005ec2]">
+              <Button disabled={busy} onClick={() => onFound("pay")} kind="paypal">
                 {busy ? "Opening PayPal…" : `Pay ${d.totalCents ? money(d.totalCents) : ""} with PayPal`}
               </Button>
             ) : (

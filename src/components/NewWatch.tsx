@@ -105,7 +105,6 @@ export default function NewWatch({
   const [budgetSuggested, setBudgetSuggested] = useState(false);
   const [locks, setLocks] = useState<Lock[]>([]);
   const [availableNow, setAvailableNow] = useState<{ name: string; priceCents: number; url: string }[]>([]);
-  const [showAllOptions, setShowAllOptions] = useState(false);
 
   function changeLink(next: string) {
     setUrl(next);
@@ -129,7 +128,9 @@ export default function NewWatch({
       setPicked(json.item.pickable ? d.matchingOptionIds.filter((id: string) => json.item.choices.some((c: { id: string }) => c.id === id)) : []);
       setMaxTotal(d.maxTotalUsd ? String(d.maxTotalUsd) : "");
       setQuantity(String(d.quantity ?? 1));
-      setDays(String(Math.min(29, Math.max(1, d.expiresInDays ?? 14))));
+      // A PayPal hold lasts 29 days, counted from now, so a later start leaves fewer days to watch.
+      const startsIn = json.notBefore ? daysFromNow(json.notBefore) : 0;
+      setDays(String(Math.min(29 - startsIn, Math.max(1, d.expiresInDays ?? 14))));
       setAnySeller(json.item.storeSeller ? d.anySeller : true);
       setMode(json.item.acceptsAiBuyers ? "BUY" : "ALERT");
       setNotBefore(json.notBefore ?? null);
@@ -137,7 +138,7 @@ export default function NewWatch({
       setBudgetSuggested(!!json.budgetSuggested);
       setLocks(json.locks ?? []);
       setAvailableNow(json.availableNow ?? []);
-      setShowAllOptions(false);
+      setDetails(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -164,18 +165,22 @@ export default function NewWatch({
     }
   }
 
+  const [details, setDetails] = useState(false);
+  const fmtWhen = (iso: string) => new Date(iso).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const canStart = busy === null && !!maxTotal && mustHave.length > 0 && (mode === "ALERT" || paypalReady);
+
   return (
     <div className="min-h-screen">
       <AppHeader right={<BackLink label="Cancel" />} />
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-8">
         <h1 className="text-2xl font-semibold tracking-tight">New watch</h1>
-        <p className="mt-1 text-muted">Point Scout at one exact page and say what you want in your own words.</p>
+        <p className="mt-1 text-muted">Three steps: the link, what you want, then check Scout&apos;s plan.</p>
 
         <Card className="mt-6 p-5">
-          <label className="block text-sm font-semibold" htmlFor="url">
-            1. The page to watch
-          </label>
-          {/* A search-bar style address box, like Scout's browser on the homepage. */}
+          <StepLabel n={1} htmlFor="url">
+            Paste the link
+          </StepLabel>
+          {/* A search-bar style address box, like the one on the homepage. */}
           <div className="group mt-2 flex items-center gap-2 rounded-full border-2 border-line bg-white py-1.5 pl-4 pr-1.5 transition focus-within:border-scout focus-within:shadow-[0_0_0_4px_rgba(232,147,12,0.15)]">
             <svg viewBox="0 0 20 20" className="h-5 w-5 shrink-0 text-muted group-focus-within:text-scout" aria-hidden>
               <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" strokeWidth="2" />
@@ -192,33 +197,29 @@ export default function NewWatch({
                 setUrl(e.target.value);
                 setDraft(null);
               }}
-              placeholder="Paste a product link"
+              placeholder="Paste a product or ticket link"
               className="min-w-0 flex-1 bg-transparent py-1.5 text-[15px] outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
             />
             {url && (
-              <button type="button" aria-label="Clear the link" onClick={() => { setUrl(""); setDraft(null); }} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted hover:bg-bg hover:text-ink">
+              <button type="button" aria-label="Clear the link" onClick={() => changeLink("")} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted hover:bg-bg hover:text-ink">
                 ✕
               </button>
             )}
-            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-scout-soft px-3 py-1.5 text-xs font-bold text-[#9a5d00] sm:inline-flex">
-              <Character who="scout" mood="happy" size={18} /> Scout
-            </span>
           </div>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <span className="py-1 text-muted">Demo links:</span>
-            <button onClick={() => changeLink(linkFor("ticket"))} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
-              Tixora · concert tickets
-            </button>
-            <button onClick={() => changeLink(linkFor("dress"))} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
-              Wren · wrap dress
-            </button>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <span className="py-1 text-muted">Real stores:</span>
-            {REAL.map((r) => (
-              <button key={r.url} onClick={() => changeLink(r.url)} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
-                {r.label}
-              </button>
+          {/* Quick links for trying it out, on one line. */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-muted">
+            <span>Try:</span>
+            {[
+              { label: "Tixora tickets", to: linkFor("ticket") },
+              { label: "Wren dress", to: linkFor("dress") },
+              ...REAL.map((r) => ({ label: r.label.split(" · ")[0], to: r.url })),
+            ].map((q, i) => (
+              <span key={q.label}>
+                {i > 0 && <span aria-hidden>· </span>}
+                <button type="button" onClick={() => changeLink(q.to)} className="font-medium text-ink/80 underline-offset-2 hover:text-ink hover:underline">
+                  {q.label}
+                </button>
+              </span>
             ))}
           </div>
           {shownPreview && <PreviewCard p={shownPreview} />}
@@ -231,10 +232,9 @@ export default function NewWatch({
 
           {found && (
             <div className="rise mt-6">
-              <label className="flex items-center gap-2 text-[15px] font-semibold" htmlFor="wants">
-                <Character who="scout" mood="happy" size={30} className="shrink-0" />
-                2. What would you like Scout to watch on this page?
-              </label>
+              <StepLabel n={2} htmlFor="wants">
+                What should Scout watch for?
+              </StepLabel>
               <textarea
                 id="wants"
                 value={wants}
@@ -242,35 +242,33 @@ export default function NewWatch({
                   setWants(e.target.value);
                   setDraft(null);
                 }}
-                rows={3}
-                placeholder={found.kind === "TICKET" ? "e.g. One seat in the left wing under $40 including fees." : "e.g. Size 11 when it's back in stock, under $110."}
+                rows={2}
+                placeholder={found.kind === "TICKET" ? "e.g. One seat in the left wing under $40 including fees." : "e.g. Size 11 when it's back in stock."}
                 className="mt-2 w-full resize-none rounded-xl border border-line px-3.5 py-2.5 text-[15px] outline-none focus:border-ink"
               />
               {found.suggestions.length > 0 && (
-                <div className="mt-2">
-                  <div className="text-xs font-semibold text-muted">Scout can watch for:</div>
-                  <div className="mt-1.5 flex flex-wrap gap-2">
-                    {found.suggestions.map((sg) => (
-                      <button
-                        key={sg.title}
-                        type="button"
-                        onClick={() => {
-                          setWants(sg.sentence.replace("{time}", tomorrowAtNine()));
-                          setDraft(null);
-                        }}
-                        className="rounded-full border border-scout/40 bg-scout-soft/60 px-3 py-1.5 text-sm hover:border-scout"
-                      >
-                        {sg.title}
-                      </button>
-                    ))}
-                  </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-muted">Or pick:</span>
+                  {found.suggestions.map((sg) => (
+                    <button
+                      key={sg.title}
+                      type="button"
+                      onClick={() => {
+                        setWants(sg.sentence.replace("{time}", tomorrowAtNine()));
+                        setDraft(null);
+                      }}
+                      className="rounded-full border border-scout/40 bg-scout-soft/60 px-2.5 py-1 text-xs hover:border-scout"
+                    >
+                      {sg.title}
+                    </button>
+                  ))}
                 </div>
               )}
 
               {!draft && (
-                <div className="mt-5 flex items-center gap-3">
+                <div className="mt-4 flex items-center gap-3">
                   <Button onClick={makeDraft} disabled={!wants.trim() || busy !== null}>
-                    {busy === "draft" ? "Scout is reading the page…" : "Turn this into a checklist"}
+                    {busy === "draft" ? "Scout is making a plan…" : "Make the plan"}
                   </Button>
                   {busy === "draft" && <Character who="scout" mood="thinking" size={36} />}
                 </div>
@@ -308,241 +306,171 @@ export default function NewWatch({
 
         {draft && item && availableNow.length === 0 && (
           <Card className="rise mt-4 p-5">
-            <div className="flex gap-3">
-              <Character who="scout" mood="happy" size={48} className="shrink-0" />
-              <div className="space-y-2">
-                <div className="rounded-2xl rounded-tl-md bg-scout-soft px-3.5 py-2.5 text-[15px]">{draft.pageSummary}</div>
-                {draft.cantSee.map((c, i) => (
-                  <div key={i} className="rounded-2xl rounded-tl-md bg-warn-soft px-3.5 py-2.5 text-[15px] text-warn">
-                    {c}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <StepLabel n={3}>Check Scout&apos;s plan</StepLabel>
 
-            <div className="mt-4 flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full bg-bg px-2.5 py-1">
-                <span className="font-semibold">{item.options}</span> option{item.options === 1 ? "" : "s"} listed
-              </span>
-              <span className="rounded-full bg-bg px-2.5 py-1">
-                <span className="font-semibold">{item.inStock}</span> in stock now
-              </span>
-              {item.priceRange && (
-                <span className="rounded-full bg-bg px-2.5 py-1">
-                  {item.priceRange[0] === item.priceRange[1] ? usd(item.priceRange[0]) : `${usd(item.priceRange[0])}–${usd(item.priceRange[1])}`}
-                </span>
-              )}
-              <span className="rounded-full bg-bg px-2.5 py-1">{item.store}</span>
-            </div>
-
-            {item.pickable && item.choices.length > 0 && (
-              <div className="mt-5">
-                <div className="flex items-baseline justify-between gap-3">
-                  <div className="text-sm font-semibold">3. The exact option{picked.length === 1 ? "" : "s"}</div>
-                  <button type="button" onClick={() => setShowAllOptions(!showAllOptions)} className="text-xs font-semibold text-brand hover:underline">
-                    {picked.length === 0 ? "" : showAllOptions ? "Done" : "Change"}
-                  </button>
-                </div>
-                <p className="mt-0.5 text-xs text-muted">The Vault will only ever accept what&apos;s ticked.</p>
-                <ul className="mt-2 max-h-72 space-y-1.5 overflow-y-auto pr-1">
-                  {item.choices.filter((c) => showAllOptions || picked.length === 0 || picked.includes(c.id)).map((c) => {
-                    const on = picked.includes(c.id);
-                    return (
-                      <li key={c.id}>
-                        <button
-                          type="button"
-                          onClick={() => setPicked(on ? picked.filter((p) => p !== c.id) : [...picked, c.id])}
-                          className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition ${on ? "border-ink bg-bg ring-1 ring-ink" : "border-line hover:border-ink"}`}
-                        >
-                          <span className={`grid h-4 w-4 shrink-0 place-items-center rounded border text-[10px] font-bold ${on ? "border-ink bg-ink text-white" : "border-line"}`}>{on ? "✓" : ""}</span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate">{c.name.startsWith(`${item.name} - `) ? c.name.slice(item.name.length + 3) : c.name}</span>
-                            {c.seller && c.seller !== item.store && c.seller !== item.storeSeller && item.isDemo && <span className="block text-xs text-muted">Sold by {c.seller}</span>}
-                          </span>
-                          <span className="tabular shrink-0 text-muted">{usd(c.priceCents)}</span>
-                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${c.inStock ? "bg-good-soft text-good" : "bg-vault-soft text-vault"}`}>
-                            {c.inStock ? "In stock" : "Sold out"}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {picked.length === 0 && <p className="mt-2 text-xs text-warn">Nothing ticked: any option can match, and only the AIs judge which. Ticking makes it exact.</p>}
-              </div>
-            )}
-            {!item.pickable && (
-              <p className="mt-4 rounded-xl bg-bg px-3 py-2 text-xs text-muted">
-                Ticket listings come and go, so there&apos;s nothing to tick. Scout, the Banker and the Vault check every new listing against your words.
-              </p>
-            )}
-
-            <div className="mt-6 text-sm font-semibold">{item.pickable ? "4." : "3."} Check the order</div>
-            <div className="mt-3 rounded-xl bg-bg p-3 text-sm">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">Locked to this item</div>
-              <div className="mt-1 font-medium">{item.name}</div>
-              <div className="text-muted">
-                on {item.store}
-                {!item.isDemo
-                  ? ` · ${item.options} option${item.options === 1 ? "" : "s"} on the page, ${item.inStock} in stock right now`
-                  : item.storeSeller
-                    ? anySeller
-                      ? " · any seller of this exact item"
-                      : ` · sold by ${item.storeSeller} only`
-                    : " · any reseller on this event page"}
-              </div>
-              {locks.length > 0 && (
-                <div className="mt-3">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted">Only listings with</div>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {locks.map((l) => (
-                      <span key={l.field} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1 text-sm">
-                        <span className="font-semibold capitalize">{l.field}</span>
-                        <span className="text-muted">{l.values.join(", ")}</span>
-                        <button type="button" aria-label={`Remove the ${l.field} limit`} onClick={() => setLocks(locks.filter((x) => x.field !== l.field))} className="text-muted hover:text-bad">
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <p className="mt-1.5 text-xs text-muted">Read from each listing&apos;s own details on the page. Scout skips anything else, and the Vault checks again before paying.</p>
-                </div>
-              )}
-              {item.storeSeller && (
-                <label className="mt-2 flex items-center gap-2 text-xs text-muted">
-                  <input type="checkbox" checked={anySeller} onChange={(e) => setAnySeller(e.target.checked)} />
-                  Allow other sellers too
-                </label>
-              )}
-            </div>
-
-            <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-muted" htmlFor="title">
-              Name
-            </label>
-            <input id="title" value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-ink" />
-
-            <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">It must be</div>
-            <ul className="mt-1 space-y-1.5">
-              {mustHave.map((m, i) => (
-                <li key={i} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${m.source === "NOT_ON_PAGE" ? "border-warn/40 bg-warn-soft/40" : "border-line"}`}>
-                  <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold ${SOURCE[m.source].cls}`} title={SOURCE[m.source].label}>
-                    {SOURCE[m.source].icon}
-                  </span>
-                  <span className="flex-1">
-                    {m.text}
-                    <span className={`block text-xs ${m.source === "NOT_ON_PAGE" ? "text-warn" : "text-muted"}`}>
-                      {SOURCE[m.source].label}
-                      {m.source === "NOT_ON_PAGE" && ". Keep it and the checks will ask you, or remove it."}
-                    </span>
-                  </span>
-                  <button aria-label="Remove" onClick={() => setMustHave(mustHave.filter((_, n) => n !== i))} className="text-muted hover:text-bad">
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <Field id="max-total" label="Most in total ($)" value={maxTotal} onChange={setMaxTotal} warn={!maxTotal} />
-              <Field label="Quantity" value={quantity} onChange={setQuantity} />
-              <Field label="Watch for (days)" value={days} onChange={setDays} />
-            </div>
-            {today && <BudgetNote today={today} suggested={budgetSuggested} maxTotal={maxTotal} isDemo={item.isDemo} />}
-
-            <div className="mt-6 text-sm font-semibold">{item.pickable ? "5." : "4."} When it matches</div>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <ModeCard
-                selected={mode === "ALERT"}
-                onSelect={() => setMode("ALERT")}
-                title="Alert me, I'll pay"
-                body={item.isDemo ? "Standby tells you. You approve the payment in PayPal yourself." : "Standby tells you. You buy it on the store's own checkout."}
-              />
-              <ModeCard
-                selected={mode === "BUY"}
-                onSelect={() => item.acceptsAiBuyers && setMode("BUY")}
-                disabled={!item.acceptsAiBuyers}
-                title="Buy it for me"
-                body={
-                  item.acceptsAiBuyers
-                    ? `Approve a PayPal hold now. Standby pays the moment every check passes, never more than ${maxTotal ? `$${maxTotal}` : "the most you set"}.`
-                    : "Not available here: this store doesn't accept AI buyers yet. Stores opt in through programmes like PayPal's Agent Ready."
-                }
-              />
-            </div>
-
-            <div className="mt-4 rounded-xl border border-line p-4 text-sm">
-              <div className="flex gap-3">
-                <Character who="vault" mood="calm" size={40} className="shrink-0" />
-                <div>
-                  {mode === "BUY" ? (
-                    <>
-                      {maxTotal ? (
-                        <div className="font-semibold">PayPal holds up to ${maxTotal}. Nothing is taken yet.</div>
-                      ) : (
-                        <label className="flex flex-wrap items-center gap-2 font-semibold">
-                          How much should PayPal hold, at most?
-                          <span className="inline-flex items-center rounded-xl border-2 border-warn/60 bg-white px-2.5 py-1 font-normal focus-within:border-ink">
-                            $
-                            <input
-                              value={maxTotal}
-                              onChange={(e) => setMaxTotal(e.target.value.replace(/[^0-9.]/g, ""))}
-                              inputMode="decimal"
-                              size={6}
-                              placeholder="70"
-                              aria-label="Most you'll pay, in dollars"
-                              className="tabular w-16 bg-transparent outline-none"
-                            />
-                          </span>
-                        </label>
-                      )}
-                      <p className="mt-1 text-muted">
-                        Money only moves if Scout finds a match, the Banker agrees, and every Vault limit passes. If nothing matches, the hold is released. Holds last up to 29
-                        days.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="font-semibold">Nothing is held, and nothing is paid by Standby.</div>
-                      <p className="mt-1 text-muted">
-                        {item.isDemo
-                          ? "When Scout, the Banker and the Vault all agree, you get a find to approve in PayPal."
-                          : "Scout visits this one page every 5 minutes, says who it is, and never touches the store's checkout. When all three checks agree, you get a find and a link to buy it."}
-                      </p>
-                    </>
-                  )}
-                  {notBefore && (
-                    <p className="mt-2 flex items-center gap-2 font-medium text-brand">
-                      Scout stays quiet until {new Date(notBefore).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}, then starts.
-                      <button type="button" aria-label="Start now instead" onClick={() => setNotBefore(null)} className="text-muted hover:text-bad">
+            {/* The plan in one sentence. The parts in boxes can be changed right here. */}
+            <div className="mt-3 flex gap-3">
+              <Character who="scout" mood="happy" size={44} className="shrink-0" />
+              <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md bg-scout-soft px-4 py-3.5 text-[15px] leading-8">
+                <span className="text-muted">I&apos;ll watch</span> <strong>{item.name}</strong> <span className="text-muted">on {item.store}</span>{" "}
+                <span className="text-muted">for</span> <strong>{title}</strong>
+                {notBefore && (
+                  <>
+                    , <span className="text-muted">starting</span>{" "}
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-0.5 font-semibold ring-1 ring-line">
+                      {fmtWhen(notBefore)}
+                      <button type="button" aria-label="Start now instead" title="Start now instead" onClick={() => setNotBefore(null)} className="text-muted hover:text-bad">
                         ✕
                       </button>
-                    </p>
-                  )}
-                </div>
+                    </span>
+                  </>
+                )}
+                . <span className="text-muted">Most in total:</span>{" "}
+                <InlineNumber id="max-total" prefix="$" value={maxTotal} onChange={setMaxTotal} warn={!maxTotal} label="Most you'll pay in total, in dollars" />
+                , <span className="text-muted">for</span> <InlineNumber value={days} onChange={setDays} label="How many days to watch" /> <span className="text-muted">days. Then</span>{" "}
+                {item.acceptsAiBuyers ? (
+                  <span className="inline-flex rounded-lg bg-white p-0.5 align-middle text-sm ring-1 ring-line" role="radiogroup" aria-label="When it matches">
+                    {(["ALERT", "BUY"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        role="radio"
+                        aria-checked={mode === m}
+                        onClick={() => setMode(m)}
+                        className={`rounded-md px-2.5 py-0.5 font-semibold transition ${mode === m ? (m === "BUY" ? "bg-[#0070e0] text-white" : "bg-ink text-white") : "text-muted hover:text-ink"}`}
+                      >
+                        {m === "ALERT" ? "tell you" : "buy it for you"}
+                      </button>
+                    ))}
+                  </span>
+                ) : (
+                  <strong>tell you, and you buy it on the store&apos;s own checkout</strong>
+                )}
+                .
               </div>
             </div>
 
-            {mode === "BUY" && !paypalReady && <p className="mt-3 text-sm text-bad">PayPal isn&apos;t connected on this server yet, so Buy it for me can&apos;t start. Alert me works without it.</p>}
+            {/* The checks behind the plan, in one line, so a misread is easy to spot. */}
+            <p className="mt-3 text-sm text-muted">
+              <span className="font-semibold text-ink">It must be:</span> {mustHave.map((m) => m.text).join(" · ")}
+              {locks.length > 0 && <> · only {locks.map((l) => `${l.field} ${l.values.length > 4 ? `${l.values[0]}–${l.values[l.values.length - 1]}` : l.values.join("/")}`).join(", ")}</>}
+            </p>
+            {draft.cantSee.map((c, i) => (
+              <p key={i} className="mt-2 rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn">
+                {c}
+              </p>
+            ))}
+            {today && <BudgetNote today={today} suggested={budgetSuggested} maxTotal={maxTotal} isDemo={item.isDemo} />}
+            {mode === "BUY" && (
+              <p className="mt-2 text-sm text-muted">
+                You&apos;ll approve a PayPal hold of up to {maxTotal ? `$${maxTotal}` : "your limit"}. Nothing is taken unless Scout, the Banker and the Vault all agree; otherwise the hold is released.
+              </p>
+            )}
+            {mode === "BUY" && !paypalReady && <p className="mt-2 text-sm text-bad">PayPal isn&apos;t connected on this server yet, so Buy it for me can&apos;t start.</p>}
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              {mode === "BUY" ? (
-                <Button onClick={startWatch} disabled={busy !== null || !paypalReady || !maxTotal || mustHave.length === 0} className="bg-[#0070e0] hover:bg-[#005ec2]">
-                  {busy === "hold" ? "Opening PayPal…" : "Approve the hold with PayPal"}
-                </Button>
-              ) : (
-                <Button onClick={startWatch} disabled={busy !== null || !maxTotal || mustHave.length === 0}>
-                  {busy === "hold" ? "Starting…" : "Start watching"}
-                </Button>
-              )}
-              {!maxTotal && (
-                <button type="button" onClick={() => document.getElementById("max-total")?.focus()} className="text-sm font-medium text-warn underline-offset-2 hover:underline">
-                  Scout couldn&apos;t tell your budget. Fill in &ldquo;Most in total&rdquo; to start.
-                </button>
-              )}
+              <Button onClick={startWatch} disabled={!canStart} kind={mode === "BUY" ? "paypal" : "primary"}>
+                {busy === "hold" ? (mode === "BUY" ? "Opening PayPal…" : "Starting…") : mode === "BUY" ? "Approve the hold with PayPal" : "Start watching"}
+              </Button>
+              <button type="button" onClick={() => setDetails(!details)} aria-expanded={details} className="text-sm font-semibold text-brand hover:underline">
+                {details ? "Hide details" : "Edit details"}
+              </button>
               <Button kind="ghost" onClick={() => setDraft(null)}>
                 Start over
               </Button>
             </div>
+            {!maxTotal && <p className="mt-2 text-sm text-warn">Scout couldn&apos;t tell your budget. Fill in &ldquo;Most in total&rdquo; above to start.</p>}
+
+            {details && (
+              <div className="rise mt-5 space-y-5 border-t border-line pt-5">
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted">Name</span>
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-ink" />
+                </label>
+
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted">It must be</div>
+                  <ul className="mt-1 space-y-1.5">
+                    {mustHave.map((m, i) => (
+                      <li key={i} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${m.source === "NOT_ON_PAGE" ? "border-warn/40 bg-warn-soft/40" : "border-line"}`}>
+                        <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold ${SOURCE[m.source].cls}`} title={SOURCE[m.source].label}>
+                          {SOURCE[m.source].icon}
+                        </span>
+                        <span className="flex-1">
+                          {m.text}
+                          <span className={`block text-xs ${m.source === "NOT_ON_PAGE" ? "text-warn" : "text-muted"}`}>{SOURCE[m.source].label}</span>
+                        </span>
+                        <button aria-label="Remove" onClick={() => setMustHave(mustHave.filter((_, n) => n !== i))} className="text-muted hover:text-bad">
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {locks.length > 0 && (
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted">Only listings with</div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {locks.map((l) => (
+                        <span key={l.field} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1 text-sm">
+                          <span className="font-semibold capitalize">{l.field}</span>
+                          <span className="text-muted">{l.values.join(", ")}</span>
+                          <button type="button" aria-label={`Remove the ${l.field} limit`} onClick={() => setLocks(locks.filter((x) => x.field !== l.field))} className="text-muted hover:text-bad">
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-xs text-muted">Read from each listing&apos;s own details. Scout skips anything else, and the Vault checks again before paying.</p>
+                  </div>
+                )}
+
+                {item.pickable && item.choices.length > 0 && (
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted">The exact options</div>
+                    <p className="text-xs text-muted">The Vault will only ever accept what&apos;s ticked. Sold-out ones are fine: Scout waits for a restock.</p>
+                    <ul className="mt-2 max-h-64 space-y-1.5 overflow-y-auto pr-1">
+                      {item.choices.map((c) => {
+                        const on = picked.includes(c.id);
+                        return (
+                          <li key={c.id}>
+                            <button
+                              type="button"
+                              onClick={() => setPicked(on ? picked.filter((p) => p !== c.id) : [...picked, c.id])}
+                              className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition ${on ? "border-ink bg-bg ring-1 ring-ink" : "border-line hover:border-ink"}`}
+                            >
+                              <span className={`grid h-4 w-4 shrink-0 place-items-center rounded border text-[10px] font-bold ${on ? "border-ink bg-ink text-white" : "border-line"}`}>{on ? "✓" : ""}</span>
+                              <span className="min-w-0 flex-1 truncate">{c.name.startsWith(`${item.name} - `) ? c.name.slice(item.name.length + 3) : c.name}</span>
+                              <span className="tabular shrink-0 text-muted">{usd(c.priceCents)}</span>
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${c.inStock ? "bg-good-soft text-good" : "bg-vault-soft text-vault"}`}>{c.inStock ? "In stock" : "Sold out"}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-end gap-4">
+                  <label className="block">
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-muted">Quantity</span>
+                    <input
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value.replace(/[^0-9]/g, ""))}
+                      inputMode="numeric"
+                      className="tabular mt-1 w-20 rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-ink"
+                    />
+                  </label>
+                  {item.storeSeller && (
+                    <label className="flex items-center gap-2 pb-2 text-sm text-muted">
+                      <input type="checkbox" checked={anySeller} onChange={(e) => setAnySeller(e.target.checked)} />
+                      Allow sellers other than {item.storeSeller}
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
           </Card>
         )}
 
@@ -552,22 +480,33 @@ export default function NewWatch({
   );
 }
 
-function ModeCard({ selected, onSelect, title, body, disabled }: { selected: boolean; onSelect: () => void; title: string; body: string; disabled?: boolean }) {
+function StepLabel({ n, htmlFor, children }: { n: number; htmlFor?: string; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={disabled}
-      className={`rounded-xl border p-3 text-left transition ${selected ? "border-ink bg-bg ring-1 ring-ink" : "border-line hover:border-ink"} disabled:cursor-not-allowed disabled:opacity-55`}
-    >
-      <span className="flex items-center gap-2 text-sm font-semibold">
-        <span className={`grid h-4 w-4 place-items-center rounded-full border ${selected ? "border-ink bg-ink" : "border-line"}`}>
-          {selected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
-        </span>
-        {title}
+    <label htmlFor={htmlFor} className="flex items-center gap-2 text-[15px] font-semibold">
+      <span className="grid h-6 w-6 place-items-center rounded-full bg-ink text-xs font-bold text-white" aria-hidden>
+        {n}
       </span>
-      <span className="mt-1 block text-xs leading-relaxed text-muted">{body}</span>
-    </button>
+      {children}
+    </label>
+  );
+}
+
+// A small number box that sits inside the plan's sentence.
+function InlineNumber({ id, value, onChange, prefix, warn, label }: { id?: string; value: string; onChange: (v: string) => void; prefix?: string; warn?: boolean; label: string }) {
+  return (
+    <span className={`inline-flex items-center rounded-lg bg-white px-2 py-0.5 align-middle font-semibold ring-1 ${warn ? "ring-2 ring-warn/70" : "ring-line"} focus-within:ring-2 focus-within:ring-ink`}>
+      {prefix}
+      <input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))}
+        inputMode="decimal"
+        aria-label={label}
+        size={Math.max(2, value.length + 1)}
+        placeholder="?"
+        className="tabular bg-transparent text-center outline-none"
+      />
+    </span>
   );
 }
 
@@ -603,21 +542,6 @@ function BudgetNote({
   );
 }
 
-function Field({ id, label, value, onChange, warn }: { id?: string; label: string; value: string; onChange: (v: string) => void; warn?: boolean }) {
-  return (
-    <label className="block">
-      <span className={`block text-xs font-semibold uppercase tracking-wide ${warn ? "text-warn" : "text-muted"}`}>{label}</span>
-      <input
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[^0-9.]/g, ""))}
-        inputMode="decimal"
-        className={`tabular mt-1 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-ink ${warn ? "border-2 border-warn/60" : "border-line"}`}
-      />
-    </label>
-  );
-}
-
 type Preview = {
   url: string;
   name: string;
@@ -634,6 +558,10 @@ type Preview = {
   suggestions: { title: string; sentence: string }[];
 };
 
+function daysFromNow(iso: string) {
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+}
+
 function localNow() {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -649,18 +577,20 @@ function tomorrowAtNine() {
 // Everything Scout read on the page, from its own product data: colours, sizes with what's sold out, or the tickets on sale.
 function FoundPanel({ d, onSwitchLink }: { d: Preview; onSwitchLink: (url: string) => void }) {
   const { groups, tickets } = d.extracted;
+  const [all, setAll] = useState(false);
   if (!groups.length && !tickets.length) return null;
+  const hidden = groups.reduce((n, g) => n + Math.max(0, g.chips.length - 10), 0) + Math.max(0, tickets.length - 4);
   return (
-    <section className="rise mt-3 rounded-2xl border border-line bg-bg/60 p-4" aria-labelledby="found-title">
+    <section className="rise mt-3 rounded-2xl border border-line bg-bg/60 p-3.5" aria-labelledby="found-title">
       <h2 id="found-title" className="text-sm font-semibold">
         What Scout found on this page
       </h2>
-      <div className="mt-3 space-y-3">
+      <div className="mt-2.5 space-y-2.5">
         {groups.map((g) => (
           <div key={g.label}>
             <div className="text-xs font-semibold uppercase tracking-wide text-muted">{g.label}</div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {g.chips.map((c) =>
+              {(all ? g.chips : g.chips.slice(0, 10)).map((c) =>
                 c.url ? (
                   <button
                     key={c.text}
@@ -689,7 +619,7 @@ function FoundPanel({ d, onSwitchLink }: { d: Preview; onSwitchLink: (url: strin
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-muted">Tickets on sale now ({tickets.length})</div>
             <ul className="mt-1.5 divide-y divide-line rounded-xl border border-line bg-white text-sm">
-              {tickets.map((t, i) => (
+              {(all ? tickets : tickets.slice(0, 4)).map((t, i) => (
                 <li key={i} className="flex items-center justify-between gap-3 px-3 py-2">
                   <span>
                     {t.label}
@@ -700,6 +630,11 @@ function FoundPanel({ d, onSwitchLink }: { d: Preview; onSwitchLink: (url: strin
               ))}
             </ul>
           </div>
+        )}
+        {hidden > 0 && (
+          <button type="button" onClick={() => setAll(!all)} className="text-xs font-semibold text-brand hover:underline">
+            {all ? "Show less" : `+${hidden} more`}
+          </button>
         )}
       </div>
     </section>

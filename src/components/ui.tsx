@@ -93,7 +93,7 @@ export function Button({
 }: {
   children: ReactNode;
   onClick?: () => void;
-  kind?: "primary" | "secondary" | "danger" | "ghost";
+  kind?: "primary" | "secondary" | "danger" | "ghost" | "paypal";
   disabled?: boolean;
   type?: "button" | "submit";
   className?: string;
@@ -103,6 +103,7 @@ export function Button({
     secondary: "border border-line bg-white text-ink hover:border-ink",
     danger: "border border-bad/30 bg-white text-bad hover:bg-bad-soft",
     ghost: "text-muted hover:text-ink",
+    paypal: "bg-[#0070e0] text-white hover:bg-[#005ec2]",
   }[kind];
   return (
     <button
