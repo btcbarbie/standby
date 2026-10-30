@@ -227,10 +227,7 @@ export function parseRealPage(url: string, html: string): PageData {
     // no product data, so an honest reader gets an almost empty page: no items, prices or stock to check.
     const visible = html.replace(/<(script|style|noscript|template)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     if (visible.length < 300 && /<script/i.test(html)) {
-      const host = new URL(url).hostname.replace(/^www\./, "");
-      throw new Error(
-        `${host} builds this page with code in your browser and doesn't publish its product details (items, prices, stock) for automated readers, so Scout can't see what's on sale.${/paypal/i.test(html) ? "" : " It also doesn't show PayPal as a way to pay."} It isn't your link: this site can't be watched yet.`,
-      );
+      throw new Error("Standby can't read this page. Try another store.");
     }
     // A store's search, ad or category page still looks like a shop; anything else (a blog, news, Wikipedia) isn't one.
     const shop = /add to (cart|bag|basket)|checkout|shopping (cart|bag)|og:type["']?\s+content=["']?product|"@type"\s*:\s*"(Offer|ItemList)"/i.test(html);
