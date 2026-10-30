@@ -23,16 +23,28 @@ export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
 const gemini = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 export const scoutProvider = () => (gemini ? "Gemini" : "Claude");
 
+// Gemini's newest model is sometimes overloaded ("high demand"). Scout tries it, then two steadier Gemini models,
+// each with a short time limit, and only then falls back to Claude.
+const GEMINI_FALLBACKS = ["gemini-3.6-flash", "gemini-flash-lite-latest"];
+
 async function geminiStructured<T extends z.ZodType>(schema: T, system: string, text: string): Promise<z.infer<T>> {
-  const res = await gemini!.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: text,
-    // A hung call would hold up the watch, so Gemini gets 45 seconds; after that Scout falls back to Claude.
-    config: { systemInstruction: system, responseMimeType: "application/json", responseJsonSchema: z.toJSONSchema(schema), abortSignal: AbortSignal.timeout(45_000) },
-  });
-  const parsed = schema.safeParse(JSON.parse(res.text ?? "null"));
-  if (!parsed.success) throw new AiError("Gemini's answer didn't match the expected shape.");
-  return parsed.data as z.infer<T>;
+  let last: unknown;
+  for (const model of [GEMINI_MODEL, ...GEMINI_FALLBACKS.filter((m) => m !== GEMINI_MODEL)]) {
+    try {
+      const res = await gemini!.models.generateContent({
+        model,
+        contents: text,
+        config: { systemInstruction: system, responseMimeType: "application/json", responseJsonSchema: z.toJSONSchema(schema), abortSignal: AbortSignal.timeout(20_000) },
+      });
+      const parsed = schema.safeParse(JSON.parse(res.text ?? "null"));
+      if (!parsed.success) throw new AiError("Gemini's answer didn't match the expected shape.");
+      return parsed.data as z.infer<T>;
+    } catch (e) {
+      last = e;
+      console.error(`Scout on ${model} failed; trying the next model`, e instanceof Error ? e.message.slice(0, 120) : e);
+    }
+  }
+  throw last instanceof Error ? last : new AiError("Gemini didn't answer.");
 }
 
 type Effort = "low" | "medium" | "high";
