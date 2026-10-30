@@ -97,10 +97,15 @@ export default function Landing() {
             <p className="inline-flex items-center gap-2 rounded-full bg-scout-soft px-3 py-1 text-xs font-semibold text-[#9a5d00]">
               <span className="h-1.5 w-1.5 rounded-full bg-scout" /> Your AI shopper. Your rules. Your money.
             </p>
-            <h1 className="mt-4 text-4xl font-semibold leading-[1.06] tracking-tight sm:text-5xl">Give Standby the exact shopping link.</h1>
+            <h1 className="mt-4 text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl">
+              You find it.
+              <br />
+              <span className="text-scout">Standby waits</span> for the right moment to buy it.
+            </h1>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted lg:mx-0">
-              It watches the page diligently and acts when the right opportunity comes along, within the limits and requirements you set. Two independent
-              AI checks review the purchase, while built-in safeguards enforce your limits before a purchase can proceed.
+              It watches the page diligently and acts when the right opportunity comes along, within the limits and requirements you set.{" "}
+              <strong className="font-semibold text-ink">Two independent AI checks</strong> review the purchase, while{" "}
+              <strong className="font-semibold text-ink">built-in safeguards</strong> enforce your limits before a purchase can proceed.
             </p>
             {/* The first thing to do: hand Standby a link. It goes straight to New watch with the link filled in. */}
             <form action="/app/new" method="get" className="mx-auto mt-7 max-w-2xl lg:mx-0">
