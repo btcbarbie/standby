@@ -210,7 +210,7 @@ function disagreement(d: DecisionView) {
 export function verdictLine(d: DecisionView) {
   switch (d.outcome) {
     case "SKIPPED":
-      return "Scout and the Banker both passed on it.";
+      return "Scout and the Banker both said no, so it was skipped.";
     case "BLOCKED":
       return "The Vault refused. No money moved.";
     case "NEEDS_YOU":
@@ -224,7 +224,7 @@ export function verdictLine(d: DecisionView) {
     case "YOU_BOUGHT":
       return "You bought it yourself on the store's own checkout.";
     case "PASSED":
-      return "You passed on it. Standby kept watching.";
+      return "You said not this one. Standby kept watching.";
     case "APPROVED":
       return `You approved it. Paid ${d.totalCents ? money(d.totalCents) : ""} through PayPal.`;
     case "DENIED":

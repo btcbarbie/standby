@@ -248,7 +248,7 @@ export async function foundAction(ownerId: string, decisionId: string, action: "
     await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "BOUGHT" } });
     await say(d.mandateId, "YOU", "I bought it myself. Watch finished.", { decisionId: d.id });
   } else {
-    await prisma.decision.update({ where: { id: d.id }, data: { outcome: "PASSED", reason: "You passed on it.", decidedBy: "you", decidedAt: new Date() } });
+    await prisma.decision.update({ where: { id: d.id }, data: { outcome: "PASSED", reason: "You said not this one.", decidedBy: "you", decidedAt: new Date() } });
     await prisma.mandate.update({ where: { id: d.mandateId }, data: { status: "WATCHING" } });
     await say(d.mandateId, "YOU", `Not this one. Keep watching.`, { decisionId: d.id });
   }
