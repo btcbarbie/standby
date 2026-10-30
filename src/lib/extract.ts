@@ -117,6 +117,13 @@ export function meetsLocks(page: Pick<PageData, "name" | "kind">, offer: { name:
   return { ok: misses.length === 0, fields: f, misses };
 }
 
+// "section 101–108" for a run of numbers, otherwise the values themselves.
 export function describeLocks(locks: Lock[]) {
-  return locks.map((l) => `${l.field} ${l.values.length > 6 ? `${l.values.slice(0, 6).join(", ")}…` : l.values.join(", ")}`).join(" · ");
+  return locks
+    .map((l) => {
+      const n = l.values.map(Number);
+      const run = n.length > 2 && n.every((x, i) => Number.isInteger(x) && (i === 0 || x === n[i - 1] + 1));
+      return `${l.field} ${run ? `${l.values[0]}–${l.values[l.values.length - 1]}` : l.values.length > 6 ? `${l.values.slice(0, 6).join(", ")}…` : l.values.join(", ")}`;
+    })
+    .join(" · ");
 }

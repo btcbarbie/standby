@@ -78,7 +78,7 @@ function ScoutBrowser() {
 }
 
 const OUTCOMES = [
-  { title: "Yes → Purchase", note: "All three agree", cls: "bg-good-soft text-good", icon: "✓" },
+  { title: "Yes → Purchase", note: "Both AIs say yes, the lock passes", cls: "bg-good-soft text-good", icon: "✓" },
   { title: "No → Block or skip", note: "The Vault says no, or both AIs pass", cls: "bg-bad-soft text-bad", icon: "✕" },
   { title: "Unsure → Ask you", note: "Scout and Banker disagree", cls: "bg-brand-soft text-brand", icon: "?" },
 ];
@@ -103,7 +103,7 @@ export default function StoryBoard({ scoutMaker }: { scoutMaker: string }) {
         </div>
       </Step>
 
-      <Step n={2} title="Three separate checks · each gets your rules on its own">
+      <Step n={2} title="Two AI checks + one hard-coded lock · each gets your rules on its own">
         <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white shadow-sm">
           <Check who="scout" tags={[`AI · ${scoutMaker}`]} tone="ai" text="Monitors your chosen page and alerts when your conditions are met.">
             <ScoutBrowser />
@@ -113,7 +113,7 @@ export default function StoryBoard({ scoutMaker }: { scoutMaker: string }) {
         </div>
       </Step>
 
-      <Step n={3} title="Do all three agree? Only a yes reaches PayPal" last>
+      <Step n={3} title="Both AIs say yes and the lock passes? Only then PayPal pays" last>
         <ul className="grid grid-cols-3 gap-2">
           {OUTCOMES.map((o) => (
             <li key={o.title} className={`rounded-lg px-2.5 py-1.5 ${o.cls}`}>
@@ -138,7 +138,7 @@ export default function StoryBoard({ scoutMaker }: { scoutMaker: string }) {
             <span className="text-[#003087]">Pay</span>
             <span className="text-[#009cde]">Pal</span>
           </span>
-          <p className="text-sm leading-relaxed text-white/90">Processes payment only when all three checks pass.</p>
+          <p className="text-sm leading-relaxed text-white/90">Processes payment only when both AI checks and the lock pass.</p>
         </div>
       </Step>
     </ol>
