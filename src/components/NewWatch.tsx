@@ -206,20 +206,21 @@ export default function NewWatch({
               </button>
             )}
           </div>
-          {/* Quick links for trying it out, on one line. */}
-          <div className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-muted">
-            <span>Try:</span>
-            {[
-              { label: "Tixora tickets", to: linkFor("ticket") },
-              { label: "Wren dress", to: linkFor("dress") },
-              ...REAL.map((r) => ({ label: r.label.split(" · ")[0], to: r.url })),
-            ].map((q, i) => (
-              <span key={q.label}>
-                {i > 0 && <span aria-hidden>· </span>}
-                <button type="button" onClick={() => changeLink(q.to)} className="font-medium text-ink/80 underline-offset-2 hover:text-ink hover:underline">
-                  {q.label}
-                </button>
-              </span>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <span className="py-1 text-muted">Demo links:</span>
+            <button onClick={() => changeLink(linkFor("ticket"))} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
+              Tixora · concert tickets
+            </button>
+            <button onClick={() => changeLink(linkFor("dress"))} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
+              Wren · wrap dress
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <span className="py-1 text-muted">Real stores:</span>
+            {REAL.map((r) => (
+              <button key={r.url} onClick={() => changeLink(r.url)} className="rounded-full border border-line px-2.5 py-1 hover:border-ink">
+                {r.label}
+              </button>
             ))}
           </div>
           {shownPreview && <PreviewCard p={shownPreview} />}
