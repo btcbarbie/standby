@@ -2,7 +2,7 @@ import Link from "next/link";
 import Character from "@/components/Character";
 import { Logo } from "@/components/ui";
 import { scoutProvider } from "@/lib/ai";
-import StoryBoard from "@/components/StoryBoard";
+import HeroDemo from "@/components/HeroDemo";
 import DressArt from "@/components/DressArt";
 
 export const dynamic = "force-dynamic";
@@ -135,7 +135,7 @@ export default function Landing() {
               </Link>
             </div>
           </div>
-          <StoryBoard scoutMaker={twoCompanies ? "Gemini" : "Claude"} />
+          <HeroDemo scoutMaker={twoCompanies ? "Gemini" : "Claude"} />
         </section>
 
         <section className="border-y border-line bg-bg" aria-labelledby="stories-title">
