@@ -22,7 +22,8 @@ function scoutMood(w: WatchSummary): Mood {
 export default function Home({ initial }: { initial: AppState }) {
   const { state, refresh } = usePoll(initial);
   const watches = state.watches;
-  const active = watches.filter((w) => ["WATCHING", "NEEDS_YOU", "PAUSED", "SETUP"].includes(w.status));
+  // A find waiting for you ("Found it · your turn") stays on the dashboard until you buy it or pass.
+  const active = watches.filter((w) => ["WATCHING", "NEEDS_YOU", "FOUND", "PAUSED", "SETUP"].includes(w.status));
   const past = watches.filter((w) => ["BOUGHT", "ENDED"].includes(w.status) && !w.hidden);
   const hidden = watches.filter((w) => w.hidden);
   const [showHidden, setShowHidden] = useState(false);
@@ -32,7 +33,7 @@ export default function Home({ initial }: { initial: AppState }) {
     await fetch(`/api/watches/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: hide ? "hide" : "unhide" }) });
     refresh();
   }
-  const needsYou = watches.filter((w) => w.status === "NEEDS_YOU").length;
+  const needsYou = watches.filter((w) => w.status === "NEEDS_YOU" || w.status === "FOUND").length;
   const watching = watches.filter((w) => w.status === "WATCHING").length;
   const looked = watches.reduce((n, w) => n + w.looked, 0);
 
@@ -40,7 +41,7 @@ export default function Home({ initial }: { initial: AppState }) {
     { who: "scout", mood: watching ? "thinking" : "calm", text: watching ? `Watching ${watching} page${watching > 1 ? "s" : ""}` : "Ready when you are" },
     { who: "banker", mood: "calm", text: looked ? `${looked} offer${looked > 1 ? "s" : ""} looked at so far` : "Nothing to review yet" },
     { who: "vault", mood: state.stopped ? "stern" : "calm", text: state.stopped ? "Locked: Stop all is on" : "$500 a day · 3 buys per 10 min" },
-    { who: "you", mood: "calm", text: needsYou ? `${needsYou} waiting for your yes` : "Nothing needs you" },
+    { who: "you", mood: "calm", text: needsYou ? `${needsYou} waiting for you` : "Nothing needs you" },
   ];
 
   return (
@@ -187,7 +188,7 @@ export default function Home({ initial }: { initial: AppState }) {
 function WatchRow({ w, action }: { w: WatchSummary; action?: React.ReactNode }) {
   const row = (
     <Link href={`/app/w/${w.id}`} className="block min-w-0 flex-1">
-      <Card className={`flex items-center gap-4 p-4 transition hover:border-ink/40 ${w.status === "NEEDS_YOU" ? "border-warn/40 ring-2 ring-warn/15" : ""}`}>
+      <Card className={`flex items-center gap-4 p-4 transition hover:border-ink/40 ${w.status === "NEEDS_YOU" ? "border-warn/40 ring-2 ring-warn/15" : w.status === "FOUND" ? "border-good/40 ring-2 ring-good/15" : ""}`}>
         <Character who="scout" mood={scoutMood(w)} size={52} className="shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

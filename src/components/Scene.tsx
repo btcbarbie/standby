@@ -103,8 +103,16 @@ export default function Scene({
         <Bubble who="banker" mood={bankerMood} line={d.banker.line} by={d.banker.by}>
           {d.banker.redFlags.length > 0 && (
             <div className="mt-2 rounded-xl border border-warn/30 bg-warn-soft px-3 py-2 text-sm text-warn">
-              <span className="font-semibold">Red flag: </span>
-              {d.banker.redFlags.join(" ")}
+              <span className="font-semibold">{d.banker.redFlags.length === 1 ? "Red flag: " : "Red flags:"}</span>
+              {d.banker.redFlags.length === 1 ? (
+                d.banker.redFlags[0]
+              ) : (
+                <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                  {d.banker.redFlags.map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
           {d.banker.elsewhere?.length > 0 && (
