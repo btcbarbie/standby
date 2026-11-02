@@ -22,8 +22,8 @@ export function mustHave(m: Mandate): string[] {
   return JSON.parse(m.mustHave);
 }
 
-function offerText(o: PageOffer) {
-  return `${o.name} (ref ${o.ref}), listed at ${money(o.priceCents)} by ${o.seller}`;
+function offerText(o: PageOffer, currency: string) {
+  return `${o.name} (ref ${o.ref}), listed at ${money(o.priceCents, currency)} by ${o.seller}`;
 }
 
 export async function checkMandate(mandateId: string, opts: { force?: boolean } = {}) {
@@ -109,7 +109,7 @@ export async function checkMandate(mandateId: string, opts: { force?: boolean } 
       return;
     }
     if (candidates.length === 0) {
-      const what = locks.length ? `nothing new with ${describeLocks(locks)} under ${money(m.maxTotalCents)}` : `nothing new under ${money(m.maxTotalCents)}`;
+      const what = locks.length ? `nothing new with ${describeLocks(locks)} under ${money(m.maxTotalCents, m.currency)}` : `nothing new under ${money(m.maxTotalCents, m.currency)}`;
       await say(m.id, "SCOUT", policy === "SLOW" ? `Checked the page: ${what}. The store asked for one visit a minute.` : `Checked the page: ${what}.`);
       return;
     }
@@ -130,7 +130,7 @@ async function note(mandateId: string, text: string) {
 
 async function evaluate(m: Mandate & { owner: { id: string; stopped: boolean; createdAt: Date } }, offer: PageOffer, pageText: string) {
   const checklist = mustHave(m);
-  const base = { wants: m.wants, mustHave: checklist, quantity: m.quantity, maxTotalUsd: m.maxTotalCents / 100, offer: offerText(offer), pageText };
+  const base = { wants: m.wants, mustHave: checklist, quantity: m.quantity, maxTotalCents: m.maxTotalCents, currency: m.currency, offer: offerText(offer, m.currency), pageText };
   const snapshot = JSON.stringify({ ...offer, priceCents: offer.priceCents, excerpt: pageText.slice(0, 4000) });
 
   // All three judge every offer independently and at the same time. The Banker never sees Scout's answer.

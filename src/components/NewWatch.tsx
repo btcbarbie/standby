@@ -5,6 +5,7 @@ import Character from "./Character";
 import { AppHeader, Button, Card } from "./ui";
 import BackLink from "./BackLink";
 import type { Draft } from "@/lib/ai";
+import { money, currencySymbol } from "@/lib/format";
 import type { Extracted, Lock } from "@/lib/extract";
 
 type Item = {
@@ -21,6 +22,7 @@ type Item = {
   pickable: boolean;
   choices: { id: string; name: string; priceCents: number; inStock: boolean; seller: string }[];
   priceRange: [number, number] | null;
+  currency: string;
 };
 
 type Check = Draft["mustHave"][number];
@@ -31,7 +33,8 @@ const SOURCE: Record<Check["source"], { label: string; cls: string; icon: string
   NOT_ON_PAGE: { label: "Not on this page, so it can't be checked", cls: "bg-warn text-white", icon: "!" },
 };
 
-const usd = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;
+// Amounts in the store's own currency ("$64", "₦215,000").
+const usd = (c: number, currency = "USD") => money(c, currency);
 
 // Real stores whose robots.txt lets automated agents read product pages (and keeps them out of checkout).
 const REAL = [
@@ -285,8 +288,8 @@ export default function NewWatch({
               <div className="space-y-2 text-[15px]">
                 <div className="rounded-2xl rounded-tl-md bg-good-soft px-3.5 py-2.5">
                   <span className="font-semibold">Good news: you can get this right now.</span>{" "}
-                  {availableNow.map((a) => `${a.name.startsWith(`${item.name} - `) ? a.name.slice(item.name.length + 3) : a.name} is in stock at ${usd(a.priceCents)}`).join("; ")}
-                  {draft.maxTotalUsd ? `, inside your $${draft.maxTotalUsd} budget.` : "."}
+                  {availableNow.map((a) => `${a.name.startsWith(`${item.name} - `) ? a.name.slice(item.name.length + 3) : a.name} is in stock at ${usd(a.priceCents, item.currency)}`).join("; ")}
+                  {draft.maxTotalUsd ? `, inside your ${usd(Math.round(draft.maxTotalUsd * 100), item.currency)} budget.` : "."}
                 </div>
                 <div className="rounded-2xl rounded-tl-md bg-scout-soft px-3.5 py-2.5">
                   There&apos;s nothing to wait for, so I won&apos;t start a watch. I&apos;m for what you can&apos;t get yet: a sold-out size, a lower price, a set time.
@@ -327,7 +330,7 @@ export default function NewWatch({
                   </>
                 )}
                 . <span className="text-muted">Most in total:</span>{" "}
-                <InlineNumber id="max-total" prefix="$" value={maxTotal} onChange={setMaxTotal} warn={!maxTotal} label="Most you'll pay in total, in dollars" />
+                <InlineNumber id="max-total" prefix={currencySymbol(item.currency)} value={maxTotal} onChange={setMaxTotal} warn={!maxTotal} label={`Most you'll pay in total, in ${item.currency}`} />
                 , <span className="text-muted">for</span> <InlineNumber value={days} onChange={setDays} label="How many days to watch" /> <span className="text-muted">days. Then</span>{" "}
                 {item.acceptsAiBuyers ? (
                   <span className="inline-flex rounded-lg bg-white p-0.5 align-middle text-sm ring-1 ring-line" role="radiogroup" aria-label="When it matches">
@@ -361,7 +364,7 @@ export default function NewWatch({
                 {c}
               </p>
             ))}
-            {today && <BudgetNote today={today} suggested={budgetSuggested} maxTotal={maxTotal} isDemo={item.isDemo} />}
+            {today && <BudgetNote today={today} suggested={budgetSuggested} maxTotal={maxTotal} isDemo={item.isDemo} currency={item.currency} />}
             {mode === "BUY" && (
               <p className="mt-2 text-sm text-muted">
                 You&apos;ll approve a PayPal hold of up to {maxTotal ? `$${maxTotal}` : "your limit"}. Nothing is taken unless Scout, the Banker and the Vault all agree; otherwise the hold is released.
@@ -443,7 +446,7 @@ export default function NewWatch({
                             >
                               <span className={`grid h-4 w-4 shrink-0 place-items-center rounded border text-[10px] font-bold ${on ? "border-ink bg-ink text-white" : "border-line"}`}>{on ? "✓" : ""}</span>
                               <span className="min-w-0 flex-1 truncate">{c.name.startsWith(`${item.name} - `) ? c.name.slice(item.name.length + 3) : c.name}</span>
-                              <span className="tabular shrink-0 text-muted">{usd(c.priceCents)}</span>
+                              <span className="tabular shrink-0 text-muted">{usd(c.priceCents, item.currency)}</span>
                               <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${c.inStock ? "bg-good-soft text-good" : "bg-vault-soft text-vault"}`}>{c.inStock ? "In stock" : "Sold out"}</span>
                             </button>
                           </li>
@@ -518,13 +521,16 @@ function BudgetNote({
   suggested,
   maxTotal,
   isDemo,
+  currency,
 }: {
   today: { totalCents: number; priceCents: number; feeCents: number; feesKnown: boolean };
   suggested: boolean;
   maxTotal: string;
   isDemo: boolean;
+  currency: string;
 }) {
   const set = Number(maxTotal) * 100;
+  const usd = (c: number) => money(c, currency);
   const breakdown = today.feeCents ? ` (${usd(today.priceCents)} + ${usd(today.feeCents)} ${isDemo ? "shipping and fees" : "fees"})` : "";
   return (
     <div className="mt-2 space-y-1 text-xs">
@@ -553,6 +559,7 @@ type Preview = {
   options: number;
   inStock: number;
   priceRange: [number, number] | null;
+  currency: string;
   acceptsPayPal: boolean;
   aiCheckout: { supported: boolean; checkout: boolean; payWith: string[]; paypal: boolean } | null;
   extracted: Extracted;
@@ -626,7 +633,7 @@ function FoundPanel({ d, onSwitchLink }: { d: Preview; onSwitchLink: (url: strin
                     {t.label}
                     <span className="block text-xs text-muted">Sold by {t.seller}</span>
                   </span>
-                  <span className="tabular font-semibold">{dollars(t.priceCents)}</span>
+                  <span className="tabular font-semibold">{dollars(t.priceCents, d.currency)}</span>
                 </li>
               ))}
             </ul>
@@ -642,7 +649,7 @@ function FoundPanel({ d, onSwitchLink }: { d: Preview; onSwitchLink: (url: strin
   );
 }
 
-const dollars = (c: number) => `$${(c / 100).toFixed(c % 100 ? 2 : 0)}`;
+const dollars = (c: number, currency = "USD") => money(c, currency);
 
 // What Scout sees at the link, before any AI: photo, name, store, price, stock, and whether it takes PayPal.
 function PreviewCard({ p }: { p: { loading: boolean; data?: Preview; error?: string } }) {
@@ -665,7 +672,7 @@ function PreviewCard({ p }: { p: { loading: boolean; data?: Preview; error?: str
     );
   }
   const d = p.data;
-  const price = d.priceRange ? (d.priceRange[0] === d.priceRange[1] ? dollars(d.priceRange[0]) : `${dollars(d.priceRange[0])}–${dollars(d.priceRange[1])}`) : null;
+  const price = d.priceRange ? (d.priceRange[0] === d.priceRange[1] ? dollars(d.priceRange[0], d.currency) : `${dollars(d.priceRange[0], d.currency)}–${dollars(d.priceRange[1], d.currency)}`) : null;
   return (
     <div className="mt-3 flex items-center gap-3 rounded-2xl border border-line bg-white p-3 shadow-sm">
       <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl border border-line bg-white">

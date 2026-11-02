@@ -5,6 +5,7 @@ import { agentHeaders } from "@/lib/manners";
 import { draftWatch, AiError } from "@/lib/ai";
 import { fail, storePath } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { money } from "@/lib/format";
 import { assertPublicUrl, canonicalProductUrl } from "@/lib/safeFetch";
 import { recallDraft, rememberDraft } from "@/lib/draftCache";
 import { cleanLocks, meetsLocks, pageFields } from "@/lib/extract";
@@ -43,9 +44,10 @@ export async function POST(req: NextRequest) {
     const draft = await draftWatch({
       wants: String(wants),
       pageText: page.text,
-      options: pickable ? options.map((o) => ({ id: o.id, name: o.name, price: `$${(o.priceCents / 100).toFixed(2)}`, inStock: o.inStock })) : [],
+      options: pickable ? options.map((o) => ({ id: o.id, name: o.name, price: money(o.priceCents, page.currency), inStock: o.inStock })) : [],
       ticked: tapped.map((o) => o.name),
       fields: pageFields(page),
+      currency: page.currency,
       now: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(now)) ? String(now) : new Date().toISOString().slice(0, 16) + " UTC",
     });
     if (tapped.length) draft.matchingOptionIds = tapped.map((o) => o.id);
@@ -56,13 +58,14 @@ export async function POST(req: NextRequest) {
     const notBefore = startMoment(draft.startAt, Number(tzOffset) || 0);
     // If the AI missed a price you wrote ("drops to $22"), take the lowest $ amount from your words.
     if (draft.maxTotalUsd == null) {
-      const amounts = [...String(wants).matchAll(/\$\s?(\d+(?:\.\d{1,2})?)/g)].map((m) => Number(m[1])).filter((n) => n > 0);
+      // "$22", "₦200,000", "£70", "NGN 150000"...
+      const amounts = [...String(wants).matchAll(/(?:[$₦£€¥₹]|\b[A-Z]{3}\s)\s?(\d[\d,]*(?:\.\d{1,2})?)/g)].map((m) => Number(m[1].replace(/,/g, ""))).filter((n) => n > 0);
       if (amounts.length) draft.maxTotalUsd = Math.min(...amounts) * (draft.quantity ?? 1);
     }
 
     const qty = draft.quantity ?? 1;
     // If your words talk about a price (a $ amount, a drop, a sale), "available now" needs a budget you actually gave.
-    const priceTalk = /\$|\d+\s*(dollars|usd)|drop|lower|cheaper|sale|discount|deal|dip|under|less|budget|price/i.test(String(wants));
+    const priceTalk = /[$₦£€¥₹]|\d+\s*(dollars|usd|naira|ngn|pounds|euros?)|drop|lower|cheaper|sale|discount|deal|dip|under|less|budget|price/i.test(String(wants));
     const budgetFromYou = draft.maxTotalUsd != null;
 
     // What it costs today, all in: the price plus any fee or shipping the store charges (the demo stores list theirs;
@@ -104,6 +107,7 @@ export async function POST(req: NextRequest) {
         kind: page.kind,
         store: page.storeName,
         storeSeller: page.isDemo && page.storeName === "Wren" ? "Wren" : null,
+        currency: page.currency,
         isDemo: page.isDemo,
         // Only stores that accept AI buyers can be paid automatically. Real stores today: watch and alert.
         acceptsAiBuyers: page.isDemo,

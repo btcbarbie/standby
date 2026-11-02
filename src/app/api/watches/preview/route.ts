@@ -4,6 +4,7 @@ import { readPage, type PageData } from "@/lib/page";
 import { agentHeaders } from "@/lib/manners";
 import { fail, storePath } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { money } from "@/lib/format";
 import { assertPublicUrl, canonicalProductUrl } from "@/lib/safeFetch";
 import { rememberDraft } from "@/lib/draftCache";
 import { extract, optionLabel, splitOption } from "@/lib/extract";
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
       options: page.offers.length,
       inStock,
       priceRange: prices.length ? [Math.min(...prices), Math.max(...prices)] : null,
+      currency: page.currency,
       acceptsPayPal: page.acceptsPayPal,
       aiCheckout,
       extracted: extract(page),
@@ -51,12 +53,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-const whole = (cents: number) => `$${Math.floor(cents / 100)}`;
+// A round amount in the page's own currency: "$22", "₦182,750".
+const roundIn = (currency: string) => (cents: number) => money(Math.floor(cents / 100) * 100, currency);
 
 // What Scout offers to watch for on this page, built from what's actually on it.
 // "{time}" is filled in by the browser, in your own time zone.
 function suggest(page: PageData): { title: string; sentence: string }[] {
   const canBuy = page.isDemo; // Demo stores accept AI buyers; real stores: Scout tells you.
+  const whole = roundIn(page.currency);
   const out: { title: string; sentence: string }[] = [];
   if (!page.offers.length) return out;
   const cheapest = Math.min(...page.offers.map((o) => o.priceCents));

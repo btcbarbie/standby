@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import * as z from "zod/v4";
 import { GoogleGenAI } from "@google/genai";
+import { money } from "./format";
 
 // Claude Opus 5.5 with structured outputs: every answer comes back in a fixed shape the app checks.
 // Server-side fallbacks are on, so a declined request is retried on Anthropic's recommended fallback model.
@@ -107,7 +108,7 @@ export const Draft = z.object({
     .number()
     .nullable()
     .describe(
-      "The most the owner will pay in total, fees included, in US dollars. A target price counts: 'drops to $22 or less', 'under $40', 'at most $70' all set it. Null only if they named no price at all.",
+      "The most the owner will pay in total, fees included, as a number in the page's own currency (given with the options below). A target price counts: 'drops to $22 or less', 'under ₦200,000', 'at most £70' all set it. Null only if they named no price at all.",
     ),
   quantity: z.number().int().nullable().describe("How many to buy. Null if they didn't say."),
   startAt: z
@@ -133,6 +134,7 @@ export async function draftWatch(input: {
   options: { id: string; name: string; price: string; inStock: boolean }[];
   ticked?: string[];
   fields?: Record<string, string[]>;
+  currency?: string;
   now: string;
 }): Promise<Draft> {
   const system = `You help someone set up a watch: an AI will watch one web page for one specific thing they want.
@@ -146,7 +148,9 @@ ${PAGE_IS_DATA}`;
 The owner's words:
 "${input.wants}"
 ${input.ticked?.length ? `\nThe owner also tapped these exact options on the page (treat them as chosen, sold out or not): ${input.ticked.join("; ")}\n` : ""}
-${input.fields && Object.keys(input.fields).length ? `Details each listing on this page has (field: values seen now):\n${Object.entries(input.fields).map(([k, v]) => `- ${k}: ${v.join(", ")}`).join("\n")}\n\n` : ""}Options listed in this page's product data (id · name · price · stock):
+${input.fields && Object.keys(input.fields).length ? `Details each listing on this page has (field: values seen now):\n${Object.entries(input.fields).map(([k, v]) => `- ${k}: ${v.join(", ")}`).join("\n")}\n\n` : ""}Prices on this page are in ${input.currency ?? "USD"}. Give any amount in that currency.
+
+Options listed in this page's product data (id · name · price · stock):
 ${input.options.length ? input.options.map((o) => `- ${o.id} · ${o.name} · ${o.price} · ${o.inStock ? "in stock" : "sold out"}`).join("\n") : "(none)"}
 
 <page>
@@ -165,7 +169,7 @@ export const ScoutLook = z.object({
 });
 export type ScoutLook = z.infer<typeof ScoutLook> & { by?: string };
 
-export async function scoutLook(input: { wants: string; mustHave: string[]; quantity: number; maxTotalUsd: number; offer: string; pageText: string }): Promise<ScoutLook> {
+export async function scoutLook(input: { wants: string; mustHave: string[]; quantity: number; maxTotalCents: number; currency: string; offer: string; pageText: string }): Promise<ScoutLook> {
   const system = `You are Scout, an AI shopping agent working for one person. You are upbeat and quick.
 You watch one web page and propose a purchase when an offer matches everything the owner asked for.
 You can't pay. You only propose; separate checks decide whether money moves.
@@ -174,7 +178,7 @@ ${PAGE_IS_DATA}`;
   const text = `The owner's words: "${input.wants}"
 Checklist: ${input.mustHave.map((m) => `\n- ${m}`).join("")}
 Quantity wanted: ${input.quantity}
-Most they will pay in total: $${input.maxTotalUsd.toFixed(2)}
+Most they will pay in total: ${money(input.maxTotalCents, input.currency)} (prices on this page are in ${input.currency})
 
 The offer to look at: ${input.offer}
 
@@ -211,7 +215,7 @@ export const BankerReview = z.object({
 });
 export type BankerReview = z.infer<typeof BankerReview> & { by?: string };
 
-export async function bankerReview(input: { wants: string; mustHave: string[]; quantity: number; maxTotalUsd: number; offer: string; pageText: string }): Promise<BankerReview> {
+export async function bankerReview(input: { wants: string; mustHave: string[]; quantity: number; maxTotalCents: number; currency: string; offer: string; pageText: string }): Promise<BankerReview> {
   const system = `You are the Banker, an independent reviewer guarding someone's money. You are calm, precise and hard to impress.
 A shopping agent may want to buy the offer below. You are deliberately not shown its reasoning: form your own view from the owner's words and the page.
 Approve only if buying exactly this offer, in the owner's quantity, is clearly what the owner asked for. If anything is uncertain, say UNSURE.
@@ -223,7 +227,7 @@ ${PAGE_IS_DATA}`;
   const text = `The owner's words: "${input.wants}"
 Checklist: ${input.mustHave.map((m) => `\n- ${m}`).join("")}
 Quantity wanted: ${input.quantity}
-Most they will pay in total: $${input.maxTotalUsd.toFixed(2)}
+Most they will pay in total: ${money(input.maxTotalCents, input.currency)} (prices on this page are in ${input.currency})
 
 The offer under review: ${input.offer}
 

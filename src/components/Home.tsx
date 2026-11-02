@@ -199,7 +199,7 @@ function WatchRow({ w, action }: { w: WatchSummary; action?: React.ReactNode }) 
             <StatusPill status={w.status} reason={w.pausedReason} />
           </div>
           <div className="mt-0.5 truncate text-sm text-muted">
-            {w.itemName} · {w.store} · up to {money(w.maxTotalCents)} · {w.mode === "ALERT" ? "Alert me" : "Buy for me"}
+            {w.itemName} · {w.store} · up to {money(w.maxTotalCents, w.currency)} · {w.mode === "ALERT" ? "Alert me" : "Buy for me"}
           </div>
           <div className="mt-1 truncate text-xs text-muted">
             {w.status === "WATCHING" && <><TimeAgo at={w.lastCheckedAt} prefix="Checked " /> · {w.visits} visits · </>}

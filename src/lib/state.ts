@@ -33,6 +33,7 @@ export async function loadState(ownerId: string, watchId?: string | null) {
     isDemo: m.isDemo,
     listingUrl: m.listingUrl,
     maxTotalCents: m.maxTotalCents,
+    currency: m.currency,
     quantity: m.quantity,
     expiresAt: m.expiresAt.toISOString(),
     notBefore: m.notBefore?.toISOString() ?? null,

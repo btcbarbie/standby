@@ -28,6 +28,7 @@ export type AuditRow = {
   vault: string;
   outcome: string;
   totalCents: number | null;
+  currency: string;
   paid: boolean;
   capture: string | null;
   decidedBy: string;
@@ -207,7 +208,7 @@ export default function AuditGrid() {
         headerName: "Total",
         width: 120,
         type: "rightAligned",
-        cellRenderer: (p: ICellRendererParams<Row>) => (p.node.rowPinned ? <TotalsCell {...p} /> : <span className="tabular">{p.value != null ? money(p.value) : "—"}</span>),
+        cellRenderer: (p: ICellRendererParams<Row>) => (p.node.rowPinned ? <TotalsCell {...p} /> : <span className="tabular">{p.value != null ? money(p.value, p.data?.currency) : "—"}</span>),
       },
       { field: "capture", headerName: "PayPal capture", width: 170, cellClass: "font-mono text-xs", valueFormatter: (p) => p.value ?? "" },
       { field: "decidedBy", headerName: "Decided by", width: 115 },

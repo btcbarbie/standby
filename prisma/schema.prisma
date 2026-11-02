@@ -48,6 +48,8 @@ model Mandate {
   kind         String   // TICKET | DRESS
   quantity     Int      @default(1)
   maxTotalCents Int
+  // The store's own currency (from its product data). Every amount on this watch is in it.
+  currency     String   @default("USD")
   expiresAt    DateTime
   // For drops and launches: don't visit or buy before this moment.
   notBefore    DateTime?

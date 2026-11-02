@@ -22,7 +22,7 @@ export default async function PurchasesPage() {
   const rows = await prisma.decision.findMany({
     where: { outcome: { in: Object.keys(HOW) }, mandate: { ownerId: owner.id } },
     orderBy: { decidedAt: "desc" },
-    include: { mandate: { select: { id: true, title: true, itemName: true, storeName: true, listingUrl: true, isDemo: true } } },
+    include: { mandate: { select: { id: true, title: true, itemName: true, storeName: true, listingUrl: true, isDemo: true, currency: true } } },
   });
   const viaPayPal = rows.filter((r) => r.paypalCaptureId);
   const spent = viaPayPal.reduce((n, r) => n + (r.totalCents ?? 0), 0);
@@ -68,7 +68,7 @@ export default async function PurchasesPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="tabular text-lg font-semibold">{r.totalCents != null ? money(r.totalCents) : "—"}</div>
+                      <div className="tabular text-lg font-semibold">{r.totalCents != null ? money(r.totalCents, r.mandate.currency) : "—"}</div>
                       <div className="text-xs text-muted">
                         <TimeAgo at={(r.decidedAt ?? r.createdAt).toISOString()} />
                       </div>

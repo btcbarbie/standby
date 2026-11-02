@@ -25,6 +25,8 @@ export type PageData = {
   acceptsPayPal: boolean;
   // The product photo, for previews. Only https links; null if the page has none.
   image: string | null;
+  // The currency the page's prices are in (ISO code from its product data, e.g. "NGN"). Demo stores are US dollars.
+  currency: string;
   // Other versions of this product the page links to (usually other colours), each its own page.
   siblings: { url: string; label: string }[];
   // This page's own colour, read from its address when the store gives each colour its own page.
@@ -178,6 +180,7 @@ export function parseDemoPage(url: string, html: string): PageData {
     storeName: url.includes("/tixora/") ? "Tixora" : "Wren",
     acceptsPayPal: mentionsPayPal(html),
     image: null,
+    currency: "USD",
     siblings: [],
     thisColour: null,
   };
@@ -241,6 +244,7 @@ export function parseRealPage(url: string, html: string): PageData {
   const host = new URL(url).hostname.replace(/^www\./, "");
   const brand = nameOf(product.brand) || host;
   const offers: PageOffer[] = [];
+  let currency: string | null = null;
   const addOffers = (source: Ld, baseLabel: string, sku: string) => {
     // Some stores keep size and colour in their own fields rather than in the variant's name.
     // Short values like "M" need a whole-word match ("Shorts" isn't size S); longer ones just need to appear.
@@ -256,6 +260,9 @@ export function parseRealPage(url: string, html: string): PageData {
     const unique = String(source.mpn ?? source.gtin ?? source.gtin13 ?? source.gtin14 ?? "");
     for (const o of asArray(source.offers as Ld | Ld[])) {
       const price = parseFloat(String(o.price ?? o.lowPrice ?? ""));
+      // The currency the store states for this price ("NGN", "GBP"...). Without it, US dollars.
+      const cur = String(o.priceCurrency ?? (o.priceSpecification as Ld | undefined)?.priceCurrency ?? "").trim().toUpperCase();
+      if (/^[A-Z]{3}$/.test(cur)) currency ??= cur;
       if (!Number.isFinite(price)) continue;
       const offerUrl = o.url ? new URL(String(o.url), url).toString() : String(source.url ?? url);
       const id = String(unique || o.sku || sku || offerUrl || label) || label;
@@ -305,6 +312,7 @@ export function parseRealPage(url: string, html: string): PageData {
     storeName: host,
     acceptsPayPal: mentionsPayPal(html),
     image: pickImage(product.image ?? variants[0]?.image, html, url),
+    currency: currency ?? "USD",
     ...siblingPages(html, url),
   };
 }

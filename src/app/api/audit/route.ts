@@ -10,7 +10,7 @@ export async function GET() {
   const rows = await prisma.decision.findMany({
     where: { mandate: { ownerId: owner.id } },
     orderBy: { createdAt: "desc" },
-    include: { mandate: { select: { id: true, title: true, storeName: true, isDemo: true } } },
+    include: { mandate: { select: { id: true, title: true, storeName: true, isDemo: true, currency: true } } },
   });
   return NextResponse.json(
     rows.map((d) => {
@@ -33,6 +33,7 @@ export async function GET() {
         vault: vault ? (vault.pass ? "pass" : "block") : "—",
         outcome: d.outcome,
         totalCents: d.totalCents,
+        currency: d.mandate.currency,
         paid: ["BOUGHT", "APPROVED"].includes(d.outcome) && !!d.paypalCaptureId,
         capture: d.paypalCaptureId,
         decidedBy: d.decidedBy === "you" ? "You" : "The checks",

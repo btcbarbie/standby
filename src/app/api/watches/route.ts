@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { currentOwner } from "@/lib/owner";
 import { DEMO_MAX_VISITS, DEMO_PACE_SEC, REAL_MAX_VISITS, REAL_PACE_SEC } from "@/lib/manners";
 import { prisma } from "@/lib/prisma";
+import { money } from "@/lib/format";
 import { cleanLocks } from "@/lib/extract";
 import { say } from "@/lib/events";
 import { paypalConfigured } from "@/lib/paypal";
@@ -34,7 +35,10 @@ export async function POST(req: NextRequest) {
   if (notBefore && (Number.isNaN(notBefore.getTime()) || notBefore.getTime() < Date.now() - 60_000)) return fail("Pick a start time in the future.");
   if (notBefore && notBefore.getTime() > Date.now() + 28 * 86_400_000) return fail("Pick a start time within the next four weeks.");
   const mustHave = Array.isArray(body.mustHave) ? body.mustHave.map(String).filter(Boolean).slice(0, 8) : [];
-  if (!(maxTotalCents >= 100 && maxTotalCents <= 100000)) return fail("Set a limit between $1 and $1,000.");
+  // Buy it for me pays through PayPal (US dollars, at most $1,000 per hold). Alert-only watches are in the store's own
+  // currency and you pay on its checkout, so the limit is just what you'd spend.
+  if (mode === "BUY" && !(maxTotalCents >= 100 && maxTotalCents <= 100000)) return fail("Set a limit between $1 and $1,000.");
+  if (!(maxTotalCents >= 100 && maxTotalCents <= 100_000_000_000)) return fail(`Set a limit of at least ${money(100, page.currency)}.`);
   if (!(quantity >= 1 && quantity <= 4)) return fail("Quantity must be between 1 and 4.");
   if (!(days >= 1 && days <= 29)) return fail("Watch for 1 to 29 days. A PayPal hold lasts 29 days at most.");
   // A PayPal hold lasts 29 days, so a Buy-for-me watch must finish inside that.
@@ -76,6 +80,7 @@ export async function POST(req: NextRequest) {
       kind: page.kind,
       quantity,
       maxTotalCents,
+      currency: page.currency,
       // A timed watch runs for its days from the start time.
       expiresAt: new Date((notBefore?.getTime() ?? Date.now()) + days * 86_400_000),
       notBefore,

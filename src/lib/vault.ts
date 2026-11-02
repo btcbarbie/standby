@@ -77,8 +77,8 @@ export async function runVault(owner: Owner, m: Mandate, offerId: string, quanti
       m.isDemo ? "Total with fees" : "Price on the page",
       q.totalCents <= m.maxTotalCents,
       m.isDemo
-        ? `${money(q.totalCents)} vs your limit of ${money(m.maxTotalCents)}${q.feeCents ? ` (includes ${money(q.feeCents * quantity)} in fees)` : ""}.`
-        : `${money(q.totalCents)} vs your limit of ${money(m.maxTotalCents)}. Shipping and tax show at the store's checkout.`,
+        ? `${money(q.totalCents, m.currency)} vs your limit of ${money(m.maxTotalCents, m.currency)}${q.feeCents ? ` (includes ${money(q.feeCents * quantity, m.currency)} in fees)` : ""}.`
+        : `${money(q.totalCents, m.currency)} vs your limit of ${money(m.maxTotalCents, m.currency)}. Shipping and tax show at the store's checkout.`,
     );
     if (m.mode === "BUY") {
       add(
@@ -109,12 +109,15 @@ export async function runVault(owner: Owner, m: Mandate, offerId: string, quanti
   });
   const spentToday = spent._sum.totalCents ?? 0;
   const total = q?.totalCents ?? 0;
-  add("daily", "Daily limit", spentToday + total <= DAILY_LIMIT_CENTS, `${money(spentToday)} spent today, limit ${money(DAILY_LIMIT_CENTS)}.`);
+  // The daily limit is on money Standby itself pays through PayPal, in US dollars. A store in another currency is
+  // alert-only: you pay on its own checkout, so there's nothing of Standby's to count.
+  if (m.currency === "USD") add("daily", "Daily limit", spentToday + total <= DAILY_LIMIT_CENTS, `${money(spentToday)} spent today, limit ${money(DAILY_LIMIT_CENTS)}.`);
+  else add("daily", "Daily limit", true, `Not counted: prices here are in ${m.currency}, and you pay on the store's own checkout.`);
 
   const failed = checks.filter((c) => !c.ok);
   const pass = failed.length === 0;
   const line = pass
-    ? `${q ? money(q.totalCents) : ""} ${m.isDemo ? "total" : "on the page"}, quantity ${quantity}, inside every limit. ${m.mode === "BUY" ? "Open." : "Cleared to tell you."}`.trim()
+    ? `${q ? money(q.totalCents, m.currency) : ""} ${m.isDemo ? "total" : "on the page"}, quantity ${quantity}, inside every limit. ${m.mode === "BUY" ? "Open." : "Cleared to tell you."}`.trim()
     : `Locked. ${failed[0].label}: ${failed[0].detail}`;
   return { pass, checks, totalCents: q?.totalCents ?? null, line };
 }
