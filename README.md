@@ -35,7 +35,9 @@ Open the watch to see the whole conversation between Scout, the Banker and the V
 
 **3. Try the tricks.** On the Tixora store's demo panel, **$30 seat with a hidden message** lists a seat whose text tells AI shoppers to buy four and claims the owner already approved it. The Banker flags it, so Standby stops and asks you instead of paying.
 
-**4. Point it at a real store.** Paste a product link from a store that publishes its product data, such as `https://www.allbirds.com/products/mens-tree-runners`. Scout shows the colours, sizes and what's sold out. Real stores are watch-and-alert only: Standby tells you, and you buy on the store's own checkout.
+**4. Check the audit log.** From **Your watches**, open **Audit log**: every decision in one AG Grid table. Click **Verify the chain**, then **Try changing history (demo)**, which quietly edits one of your own past demo decisions, and verify again. The changed row turns red. **Put it back** restores it exactly.
+
+**5. Point it at a real store.** Paste a product link from a store that publishes its product data, such as `https://www.allbirds.com/products/mens-tree-runners`. Scout shows the colours, sizes and what's sold out. Real stores are watch-and-alert only: Standby tells you, and you buy on the store's own checkout.
 
 ## How it works
 
@@ -57,6 +59,7 @@ Because Scout and the Banker come from different AI companies, no single AI comp
 - **Tell you, or buy for you.** Alert mode: Standby tells you and you pay (on a demo store, you approve that one payment in PayPal). Buy mode: you approve one PayPal hold up front and Standby pays from it only when every check passes.
 - **Point you to the store** when what you asked for is already on sale within your budget. Standby is for what you can't simply buy right now.
 - **Keep a record.** Each watch has a conversation of everything Scout, the Banker, the Vault, PayPal and you said. Important moments (a purchase, a find, a question for you) also arrive as alerts. Every decision is sealed to the one before it (a hash chain), so later edits show. **Purchases** lists every buy with its PayPal capture ID.
+- **Audit everything.** The **Audit log** (built with [AG Grid](https://www.ag-grid.com/)) lists every decision across your watches: each AI's verdict and model, the Vault, the outcome, the total, the PayPal capture and the seal, with search, quick filters, sorting, a pinned totals row and CSV export. **Verify the chain** recomputes every seal on the server and checks every link, marking each row intact or changed.
 - **Stop all** is an emergency brake: no visits and no purchases until you switch it back on.
 
 In the language of Google's [Agent Payments Protocol (AP2)](https://ap2-protocol.org/), a watch is an **intent mandate** for a human-not-present purchase: your words, the confirmed checklist and hard limits, set up before the agent acts. Standby's addition is how the mandate is enforced: two independent AI checks from different companies, a hard-coded lock underneath, and you as the tie-breaker.
@@ -88,6 +91,7 @@ The demo stores include a store owner's view of every AI agent that visited, wha
 - Each decision records which model answered. Without a Gemini key, Scout falls back to Claude and says so.
 - **PayPal** Orders v2 and Payments v2 (authorize, capture, void) in the sandbox.
 - **Cloudflare `web-bot-auth`** for signed agent visits.
+- **AG Grid** (Community) for the audit log.
 - Built with **Next.js 16**, React 19, Tailwind CSS 4, Prisma with SQLite, hosted on Railway.
 - Claude Code was used as a coding assistant.
 
