@@ -86,7 +86,6 @@ export default function Home({ initial }: { initial: AppState }) {
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your watches</h1>
-            <p className="mt-1 text-muted">Things you want, waited for. Bought only when the checks agree.</p>
           </div>
           <div className="flex gap-2">
             <Link href="/app/purchases" className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-semibold hover:border-ink">
@@ -182,7 +181,6 @@ export default function Home({ initial }: { initial: AppState }) {
           </>
         )}
 
-        <DemoStores stores={state.stores} />
       </main>
     </div>
   );
@@ -260,22 +258,3 @@ function Empty({ stores }: { stores: AppState["stores"] }) {
   );
 }
 
-function DemoStores({ stores }: { stores: AppState["stores"] }) {
-  return (
-    <section className="mt-12 rounded-2xl border border-dashed border-line p-4 text-sm text-muted">
-      <span className="font-semibold text-ink">Demo stores.</span> Standby is watching two practice websites made for this demo. Open one in a new tab and
-      use its demo panel to list new tickets or restock sizes:{" "}
-      {stores.tixora && (
-        <a className="font-semibold text-brand" href={stores.tixora} target="_blank" rel="noreferrer">
-          Tixora (tickets) ↗
-        </a>
-      )}
-      {" · "}
-      {stores.wren && (
-        <a className="font-semibold text-brand" href={stores.wren} target="_blank" rel="noreferrer">
-          Wren (clothing) ↗
-        </a>
-      )}
-    </section>
-  );
-}
