@@ -1,4 +1,3 @@
-import { createHash } from "crypto";
 import type { Mandate } from "@prisma/client";
 import { prisma } from "./prisma";
 import { readPage, BackoffError, type PageOffer } from "./page";
@@ -10,6 +9,7 @@ import { captureHold, releaseHold, PayPalError } from "./paypal";
 import { placeOrder } from "./stores";
 import { money } from "./format";
 import { say } from "./events";
+import { sealOf } from "./seal";
 import { describeLocks, meetsLocks, type Lock } from "./extract";
 
 // The watch loop. For each new offer that might fit, three independent checks:
@@ -307,9 +307,7 @@ async function seal(mandateId: string, input: DecisionInput) {
   const seq = (last?.seq ?? 0) + 1;
   const prevSeal = last?.seal ?? "genesis";
   const createdAt = new Date();
-  const seal = createHash("sha256")
-    .update(JSON.stringify({ prevSeal, seq, mandateId, offerId: input.offerId, snapshot: input.snapshot, scout: input.scout, banker: input.banker ?? null, at: createdAt.toISOString() }))
-    .digest("hex");
+  const seal = sealOf({ prevSeal, seq, mandateId, offerId: input.offerId, snapshot: input.snapshot, scout: input.scout, banker: input.banker ?? null, at: createdAt });
   return prisma.decision.create({
     data: {
       ...input,

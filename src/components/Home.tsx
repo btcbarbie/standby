@@ -92,6 +92,9 @@ export default function Home({ initial }: { initial: AppState }) {
             <Link href="/app/purchases" className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-semibold hover:border-ink">
               Purchases
             </Link>
+            <Link href="/app/audit" className="rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-semibold hover:border-ink">
+              Audit log
+            </Link>
             <Link href="/app/new" className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-black">
               + New watch
             </Link>
