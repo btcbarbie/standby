@@ -74,8 +74,8 @@ function Verdict({ value, by }: { value: string; by?: string }) {
   const v = VERDICT[value];
   if (!v) return <span className="text-muted">—</span>;
   return (
-    <span className="flex h-full items-center gap-1.5">
-      <span className={`grid h-5 w-5 place-items-center rounded-full text-[11px] font-black ${v.cls}`} aria-hidden>
+    <span className="flex h-full items-center gap-1.5 leading-none">
+      <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-black leading-none ${v.cls}`} aria-hidden>
         {v.icon}
       </span>
       <span className="leading-tight">
@@ -167,12 +167,13 @@ export default function AuditGrid() {
         width: 150,
         sort: "desc",
         valueFormatter: (p) => (p.value ? new Date(p.value).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""),
+        cellRenderer: (p: ICellRendererParams<Row>) => (p.node.rowPinned ? <TotalsCell {...p} /> : p.valueFormatted),
       },
       {
         field: "watch",
         headerName: "Watch",
-        flex: 1.3,
-        minWidth: 200,
+        flex: 1.6,
+        minWidth: 230,
         cellRenderer: (p: ICellRendererParams<Row>) =>
           p.node.rowPinned ? (
             <TotalsCell {...p} />
@@ -183,7 +184,7 @@ export default function AuditGrid() {
             </span>
           ),
       },
-      { field: "offer", headerName: "Offer", flex: 1, minWidth: 150 },
+      { field: "offer", headerName: "Offer", flex: 1, minWidth: 160 },
       { field: "store", headerName: "Store", hide: true },
       { field: "scoutBy", headerName: "Scout model", hide: true },
       { field: "bankerBy", headerName: "Banker model", hide: true },
@@ -338,14 +339,16 @@ export default function AuditGrid() {
         </button>
       </div>
 
-      <div className="h-[560px]">
+      {/* Short logs fit their rows; long ones scroll inside a fixed height. */}
+      <div className={(shown?.length ?? 0) > 10 ? "h-[560px]" : ""}>
         <AgGridReact<Row>
+          domLayout={(shown?.length ?? 0) > 10 ? "normal" : "autoHeight"}
           theme={theme}
           rowData={shown ?? undefined}
           loading={!shown}
           columnDefs={cols}
           defaultColDef={{ sortable: true, resizable: true, filter: true }}
-          getRowId={(p) => p.data.id}
+          getRowId={(p) => p.data.id ?? "totals"}
           quickFilterText={search}
           isExternalFilterPresent={() => filter !== "all"}
           doesExternalFilterPass={(n) => (n.data ? (FILTERS.find((f) => f.key === filter)?.test(n.data) ?? true) : true)}
