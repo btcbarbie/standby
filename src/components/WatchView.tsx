@@ -17,6 +17,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
   const { state, refresh } = usePoll(initial, id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   // You're looking at this watch, so its alerts count as seen.
   const unseenHere = state.alerts.some((a) => a.watchId === id);
@@ -42,6 +43,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
       window.location.href = json.approveUrl;
       return;
     }
+    setNote(json.note ?? null);
     setBusy(false);
     refresh();
   }
@@ -112,9 +114,15 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
           <div className="flex flex-wrap gap-2">
             {w.status === "WATCHING" && (
               <>
-                <Button kind="secondary" disabled={busy} onClick={() => act("check")}>
-                  Check now
-                </Button>
+                {startsLater(w.notBefore) ? (
+                  <Button kind="secondary" disabled={busy} onClick={() => act("start")}>
+                    Start now
+                  </Button>
+                ) : (
+                  <Button kind="secondary" disabled={busy} onClick={() => act("check")}>
+                    Check now
+                  </Button>
+                )}
                 <Button kind="secondary" disabled={busy} onClick={() => act("pause")}>
                   Pause
                 </Button>
@@ -134,6 +142,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
         </div>
 
         {error && <p className="mt-4 rounded-xl bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>}
+        {note && <p className="mt-4 rounded-xl bg-white px-3 py-2 text-sm text-muted ring-1 ring-line">{note}</p>}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
           <section className="min-w-0 space-y-4">
@@ -322,7 +331,7 @@ function Panel({ id, title, icon, summary, children }: { id: string; title: stri
   }
   return (
     <Card className="p-4">
-      <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-2 text-left">
+      <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-2 rounded-md text-left outline-offset-4">
         {icon}
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">{title}</span>
@@ -336,4 +345,8 @@ function Panel({ id, title, icon, summary, children }: { id: string; title: stri
       {open && <div className="mt-3">{children}</div>}
     </Card>
   );
+}
+
+function startsLater(notBefore: string | null) {
+  return !!notBefore && new Date(notBefore).getTime() > Date.now();
 }
