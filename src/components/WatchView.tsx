@@ -185,9 +185,8 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
           </section>
 
           <aside className="space-y-4">
-            <Card className="p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">Your words</div>
-              <p className="mt-1 text-[15px] leading-snug">“{d.wants}”</p>
+            <Panel id="words" title="Your words" summary={`“${d.wants.length > 48 ? `${d.wants.slice(0, 48)}…` : d.wants}”`}>
+              <p className="text-[15px] leading-snug">“{d.wants}”</p>
               <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">It must be</div>
               <ul className="mt-1 space-y-1 text-sm">
                 {d.mustHave.map((m, i) => (
@@ -197,14 +196,15 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                   </li>
                 ))}
               </ul>
-            </Card>
+            </Panel>
 
-            <Card className="p-4">
-              <div className="flex items-center gap-2">
-                <Character who="vault" size={28} />
-                <span className="text-sm font-semibold">Vault limits</span>
-              </div>
-              <dl className="mt-3 space-y-1.5 text-sm">
+            <Panel
+              id="vault"
+              title="Vault limits"
+              icon={<Character who="vault" size={26} />}
+              summary={`Most ${money(w.maxTotalCents, w.currency)} · until ${shortDate(w.expiresAt)}`}
+            >
+              <dl className="space-y-1.5 text-sm">
                 <Row k="Mode" v={w.mode === "ALERT" ? "Alert me, I pay" : "Buy for me (pre-approved)"} />
                 <Row k="Item" v={w.itemName} />
                 {d.options && <Row k="Only these" v={d.options.join(" · ")} />}
@@ -219,11 +219,10 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                 <Row k="Speed limit" v="3 buys / 10 min" />
                 <Row k="Daily limit" v="$500" />
               </dl>
-            </Card>
+            </Panel>
 
-            <Card className="p-4">
-              <div className="text-sm font-semibold">Polite to the store</div>
-              <div className="mt-3">
+            <Panel id="polite" title="Polite to the store" summary={`${w.visits} of ${w.maxVisits} visits · this page only`}>
+              <div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted">Visits this round</span>
                   <span className="tabular font-medium">
@@ -246,31 +245,29 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                 On real stores Scout visits once every 5 minutes. On every visit it tells the store who it is and what it may do:
               </p>
               <p className="mt-1.5 rounded-lg bg-bg px-2.5 py-2 font-mono text-[11px] leading-relaxed text-ink/80">{d.declaration}</p>
-            </Card>
+            </Panel>
 
             {w.mode === "ALERT" ? (
-              <Card className="p-4">
-                <div className="text-sm font-semibold">Payment</div>
-                <p className="mt-1 text-sm text-muted">
+              <Panel id="payment" title="Payment" summary="Alert me: nothing is held">
+                <p className="text-sm text-muted">
                   {w.isDemo
                     ? "Alert me: nothing is held. When it matches, you approve that one payment in PayPal yourself."
                     : "Alert me: Standby never touches this store's checkout. When it matches, you buy it on the store's own site."}
                 </p>
-              </Card>
+              </Panel>
             ) : (
-            <Card className="p-4">
-                <div className="text-sm font-semibold">PayPal hold</div>
+              <Panel id="payment" title="PayPal hold" summary={d.paypalAuthorizationId ? `${money(d.heldCents ?? 0)} held` : "Not approved yet"}>
                 {d.paypalAuthorizationId ? (
-                  <dl className="mt-2 space-y-1.5 text-sm">
+                  <dl className="space-y-1.5 text-sm">
                     <Row k="Held" v={money(d.heldCents ?? 0)} />
                     <Row k="Authorization" v={d.paypalAuthorizationId} mono />
                     {d.holdExpiresAt && <Row k="Hold ends" v={shortDate(d.holdExpiresAt)} />}
                   </dl>
                 ) : (
-                  <p className="mt-1 text-sm text-muted">Not approved yet. Nothing is held and nothing can be bought.</p>
+                  <p className="text-sm text-muted">Not approved yet. Nothing is held and nothing can be bought.</p>
                 )}
                 <p className="mt-3 text-xs text-muted">Only the amount actually spent is taken. Anything left is released.</p>
-              </Card>
+              </Panel>
             )}
 
             <p className="px-1 text-xs text-muted">
@@ -302,5 +299,41 @@ function Row({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
       <dt className="text-muted">{k}</dt>
       <dd className={`text-right ${mono ? "font-mono text-xs" : ""}`}>{v}</dd>
     </div>
+  );
+}
+
+// A sidebar panel you can fold away. Folded, it shows a one-line summary; your choice is remembered on this device.
+function Panel({ id, title, icon, summary, children }: { id: string; title: string; icon?: React.ReactNode; summary: string; children: React.ReactNode }) {
+  const key = `standby.panel.${id}`;
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        if (localStorage.getItem(key) === "closed") setOpen(false);
+      } catch {}
+    });
+  }, [key]);
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    try {
+      localStorage.setItem(key, next ? "open" : "closed");
+    } catch {}
+  }
+  return (
+    <Card className="p-4">
+      <button type="button" onClick={toggle} aria-expanded={open} className="flex w-full items-center gap-2 text-left">
+        {icon}
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">{title}</span>
+          {!open && <span className="block truncate text-xs text-muted">{summary}</span>}
+        </span>
+        <svg viewBox="0 0 20 20" className={`h-4 w-4 shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} aria-hidden>
+          <path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="sr-only">{open ? "Collapse" : "Expand"}</span>
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </Card>
   );
 }
