@@ -33,7 +33,7 @@ Open the watch to see the whole conversation between Scout, the Banker and the V
 - Email: `SANDBOX_BUYER_EMAIL`
 - Password: `SANDBOX_BUYER_PASSWORD`
 
-**3. Try the tricks.** Open the ticket watch and click **Open the page ↗** to reach the Tixora store. In its demo panel, **$30 seat with a hidden message** lists a seat whose text tells AI shoppers to buy four and claims the owner already approved it. The Banker flags it, so Standby stops and asks you instead of paying.
+**3. Try the tricks.** Open the ticket watch and click **Open the page ↗** to reach the Tixora store. In the **Try it yourself** panel at the bottom, **List a seat with a hidden message** adds a seat whose invisible text tells AI shoppers to buy four and claims the owner already approved it. The Banker flags it, so Standby stops and asks you instead of paying.
 
 **4. Check the audit log.** From **Your watches**, open **Audit log**: every decision in one AG Grid table. Click **Verify the chain**, then **Try changing history (demo)**, which quietly edits one of your own past demo decisions, and verify again. The changed row turns red. **Put it back** restores it exactly.
 

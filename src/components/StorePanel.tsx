@@ -17,9 +17,9 @@ type Visitors = {
 };
 
 const POLICIES: { key: Visitors["policy"]; label: string; hint: string }[] = [
-  { key: "WELCOME", label: "Welcome", hint: "Agents that sign their visits may visit." },
-  { key: "SLOW", label: "Slow down", hint: "One visit a minute per agent." },
-  { key: "CLOSED", label: "Closed to AI", hint: "Agents should not visit." },
+  { key: "WELCOME", label: "Allow AI shoppers", hint: "They may visit if they prove who they are." },
+  { key: "SLOW", label: "Ask them to slow down", hint: "One visit a minute for each." },
+  { key: "CLOSED", label: "Block AI shoppers", hint: "They should not visit. Standby pauses." },
 ];
 
 export default function StorePanel({ store, listingId }: { store: StoreKey; listingId: string }) {
@@ -47,14 +47,14 @@ export default function StorePanel({ store, listingId }: { store: StoreKey; list
     };
   }, [tab, open, loadVisitors]);
 
-  async function run(key: string, title: string) {
+  async function run(key: string) {
     setBusy(key);
     setError(null);
     try {
       const res = await fetch("/api/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "That didn't work.");
-      setDone(title);
+      setDone(key);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "That didn't work.");
@@ -78,8 +78,8 @@ export default function StorePanel({ store, listingId }: { store: StoreKey; list
             <span className="mr-2 rounded-md bg-[#0e1525] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Demo</span>
             {(
               [
-                ["events", "Make something happen"],
-                ["visitors", "AI visitors (store owner's view)"],
+                ["events", "Try it yourself"],
+                ["visitors", "See AI visitors"],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -101,25 +101,25 @@ export default function StorePanel({ store, listingId }: { store: StoreKey; list
 
         {open && tab === "events" && (
           <div className="border-t border-[#eceef2] px-4 pb-4 pt-3">
-            <p className="text-xs text-[#5a6478]">Not part of the store. Each button changes this page the way a seller would. Agents notice on their next visit.</p>
+            <p className="text-xs text-[#5a6478]">Each button changes this page, the way a seller would. Only you can see this. Press one, then check your watch to see how Standby reacts.</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {DEMO_EVENTS.filter((e) => e.store === store).map((e) => (
                 <button
                   key={e.key}
                   disabled={busy !== null}
-                  onClick={() => run(e.key, e.title)}
+                  onClick={() => run(e.key)}
                   className="rounded-xl border border-[#e4e7ec] px-3 py-2 text-left transition hover:border-[#0e1525] disabled:opacity-50"
                 >
-                  <span className="block text-sm font-medium">{busy === e.key ? "Listing…" : e.title}</span>
+                  <span className="block text-sm font-medium">{busy === e.key ? "Working…" : e.title}</span>
                   <span className="block text-xs text-[#5a6478]">{e.hint}</span>
                 </button>
               ))}
             </div>
             {(done || error) && (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-                {error ? <span className="text-[#b42318]">{error}</span> : <span>Done: {done}.</span>}
+                {error ? <span className="text-[#b42318]">{error}</span> : <span>{done === "t-copycat" ? "Done. Open See AI visitors to see the result." : "Done. Scout will notice on its next visit."}</span>}
                 <Link href="/app" className="font-semibold text-[#1f4fd8]">
-                  Watch your agents in Standby →
+                  Go to your watches →
                 </Link>
               </div>
             )}
@@ -128,7 +128,7 @@ export default function StorePanel({ store, listingId }: { store: StoreKey; list
 
         {open && tab === "visitors" && (
           <div className="border-t border-[#eceef2] px-4 pb-4 pt-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#5a6478]">Your rules for AI shopping agents</div>
+            <p className="text-xs text-[#5a6478]">Here you&apos;re the store owner. Choose whether AI shoppers may visit, and see who came.</p>
             <div className="mt-2 grid grid-cols-3 gap-2">
               {POLICIES.map((p) => (
                 <button
@@ -147,7 +147,7 @@ export default function StorePanel({ store, listingId }: { store: StoreKey; list
               {!visitors ? (
                 <span className="text-[#5a6478]">Loading…</span>
               ) : visitors.agents.length === 0 ? (
-                <span className="text-[#5a6478]">No AI agents have visited this page yet.</span>
+                <span className="text-[#5a6478]">No AI shoppers have visited this page yet.</span>
               ) : (
                 <>
                   <div className="text-[#5a6478]">
