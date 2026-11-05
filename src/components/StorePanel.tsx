@@ -24,7 +24,8 @@ const POLICIES: { key: Visitors["policy"]; label: string; hint: string }[] = [
 
 export default function StorePanel({ store, listingId }: { store: StoreKey; listingId: string }) {
   const router = useRouter();
-  const [open, setOpen] = useState(true);
+  // The dress page has its own size controls, so its panel starts folded away.
+  const [open, setOpen] = useState(store !== "wren");
   const [tab, setTab] = useState<"events" | "visitors">("events");
   const [busy, setBusy] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);

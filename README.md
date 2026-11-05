@@ -25,7 +25,7 @@ Open the watch to see the whole conversation between Scout, the Banker and the V
 1. Click **+ New watch**, tap **Wren · wrap dress**, then the suggestion **Green, size 8 back in stock**, then **Make the plan**.
 2. Scout's plan fills in the budget from today's total ($64 + $6 shipping = $70). Keep **buy it for you** selected and click **Approve the hold with PayPal**.
 3. Log in to PayPal with the sandbox buyer below and approve. Nothing is taken yet; PayPal only holds up to $70.
-4. On the watch page, click **Open the page ↗** to open the Wren store, and in its demo panel tap **Green / 8 back in stock**.
+4. On the watch page, click **Open the page ↗** to open the Wren store, tap the crossed-out **8** under **Green**, and press **OK**.
 5. Within about a minute: Scout says yes, the Banker says yes, the Vault passes, and Standby captures $70 from the hold. The watch shows **Bought** with the PayPal capture ID, the bell lights up, and the purchase is listed under **Purchases**.
 
 **Sandbox buyer (PayPal personal test account):**

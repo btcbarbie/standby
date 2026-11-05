@@ -5,6 +5,7 @@ import { currentOwner } from "@/lib/owner";
 import StorePanel from "@/components/StorePanel";
 import { logAgentVisit } from "@/lib/storeLog";
 import DressArt from "@/components/DressArt";
+import WrenSizes from "@/components/WrenSizes";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,15 @@ export default async function WrenProduct({ params }: PageProps<"/store/wren/p/[
           <p className="mt-1 text-sm text-black/60">{d.shippingNote}</p>
           <p className="mt-1 text-sm text-black/60">Pay with PayPal or card.</p>
 
+          {isMine ? (
+            <WrenSizes
+              listingId={listing.id}
+              colors={d.colors}
+              sizes={d.sizes}
+              swatch={SWATCH}
+              stock={Object.fromEntries(d.colors.flatMap((c) => d.sizes.map((s) => [`${c}|${s}`, stockOf(c, s) > 0])))}
+            />
+          ) : (
           <div className="mt-8 space-y-6">
             {d.colors.map((c) => (
               <div key={c}>
@@ -87,6 +97,7 @@ export default async function WrenProduct({ params }: PageProps<"/store/wren/p/[
               </div>
             ))}
           </div>
+          )}
 
           <ul className="mt-8 space-y-1 text-sm text-black/70">
             <li>{d.fabric}</li>

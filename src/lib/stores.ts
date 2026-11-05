@@ -158,24 +158,32 @@ export async function runDemoEvent(ownerId: string, key: string) {
     const seed = seeds[key];
     await prisma.offer.create({ data: { listingId: listing.id, ...toOfferRow("TX")(seed) } });
   } else {
-    if (key === "d-reseller") {
-      await prisma.offer.create({
-        data: {
-          listingId: listing.id,
-          ...toOfferRow("WR")(dress("Green", "8", 5800, 1, { seller: "closet.resale", feeCents: 0, note: "Worn once. Tags removed." })),
-        },
-      });
-    } else {
-      const [color, size] = key === "d-black" ? ["Black", "8"] : ["Green", "8"];
-      const offers = await prisma.offer.findMany({ where: { listingId: listing.id, seller: "Wren" } });
-      const target = offers.find((o) => {
-        const a = JSON.parse(o.attrs);
-        return a.color === color && a.size === size;
-      });
-      if (target) await prisma.offer.update({ where: { id: target.id }, data: { stock: { increment: 2 } } });
-    }
+    await prisma.offer.create({
+      data: {
+        listingId: listing.id,
+        ...toOfferRow("WR")(dress("Green", "8", 5800, 1, { seller: "closet.resale", feeCents: 0, note: "Worn once. Tags removed." })),
+      },
+    });
   }
   return listing;
+}
+
+// The size list on the dress page: put a size in stock or sell it out, in this visitor's copy of the store only.
+export async function setDressStock(ownerId: string, listingId: string, changes: { color: string; size: string; inStock: boolean }[]) {
+  const listing = await prisma.listing.findUnique({ where: { id: listingId }, include: { offers: true } });
+  if (!listing || listing.ownerId !== ownerId || listing.store !== "wren") throw new Error("Store not found.");
+  const details = JSON.parse(listing.details) as DressDetails;
+  const own = listing.offers.filter((o) => o.seller === "Wren");
+  for (const { color, size, inStock } of changes) {
+    if (!details.colors.includes(color) || !details.sizes.includes(size)) throw new Error("That size isn't on this page.");
+    const target = own.find((o) => {
+      const a = JSON.parse(o.attrs);
+      return a.color === color && a.size === size;
+    });
+    const stock = inStock ? 2 : 0;
+    if (target) await prisma.offer.update({ where: { id: target.id }, data: { stock } });
+    else await prisma.offer.create({ data: { listingId, ...toOfferRow("WR")(dress(color, size, own[0]?.priceCents ?? 6400, stock)) } });
+  }
 }
 
 // ---------- The store's checkout (what a merchant's API would quote) ----------
