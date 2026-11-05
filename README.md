@@ -30,8 +30,8 @@ Open the watch to see the whole conversation between Scout, the Banker and the V
 
 **Sandbox buyer (PayPal personal test account):**
 
-- Email: `SANDBOX_BUYER_EMAIL`
-- Password: `SANDBOX_BUYER_PASSWORD`
+- Email: sb-68prz53298121@personal.example.com
+- Password: O600Ua1/
 
 **3. Try the tricks.** Open the ticket watch and click **Open the page ↗** to reach the Tixora store. In the **Try it yourself** panel at the bottom, **List a seat with a hidden message** adds a seat whose invisible text tells AI shoppers to buy four and claims the owner already approved it. The Banker flags it, so Standby stops and asks you instead of paying.
 
