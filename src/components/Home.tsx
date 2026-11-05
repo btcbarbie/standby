@@ -201,7 +201,7 @@ function WatchRow({ w, action }: { w: WatchSummary; action?: React.ReactNode }) 
           </div>
           <div className="mt-1 truncate text-xs text-muted">
             {w.status === "WATCHING" && <><TimeAgo at={w.lastCheckedAt} prefix="Checked " /> · {w.visits} visits · </>}
-            {w.lastNote ? withTimes(w.lastNote) : w.status === "SETUP" ? "Approve the PayPal hold to start watching." : ""}
+            {w.status === "SETUP" ? "Approve the PayPal hold to start watching." : w.lastNote ? withTimes(w.lastNote) : ""}
           </div>
         </div>
         <div className="hidden shrink-0 text-right sm:block">

@@ -43,6 +43,10 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
       window.location.href = json.approveUrl;
       return;
     }
+    if (res.ok && json.gone) {
+      window.location.replace("/app");
+      return;
+    }
     setNote(json.note ?? null);
     setBusy(false);
     refresh();
@@ -133,7 +137,7 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                 Resume
               </Button>
             )}
-            {!["BOUGHT", "ENDED"].includes(w.status) && (
+            {!["BOUGHT", "ENDED", "SETUP"].includes(w.status) && (
               <Button kind="danger" disabled={busy} onClick={() => confirm("End this watch and release the PayPal hold?") && act("end")}>
                 End watch
               </Button>
@@ -160,6 +164,24 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
                 <Button disabled={busy || (w.mode === "BUY" && !state.paypalReady)} onClick={() => act("reactivate")}>
                   {busy ? "Working…" : `Reactivate for ${w.days} days`}
                 </Button>
+              </Card>
+            ) : w.status === "SETUP" ? (
+              <Card className="flex flex-col gap-4 border-brand/20 p-5 sm:flex-row sm:items-center">
+                <Character who="scout" mood="calm" size={52} className="shrink-0" />
+                <div className="flex-1">
+                  <div className="font-semibold">One step left: approve the PayPal hold</div>
+                  <p className="mt-1 text-sm text-muted">
+                    Scout starts once you approve {money(w.maxTotalCents, w.currency)} in PayPal. Nothing is held yet, so you can continue or discard this plan.
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col gap-2">
+                  <Button kind="paypal" disabled={busy || !state.paypalReady} onClick={() => act("hold")}>
+                    {busy ? "Working…" : "Continue with PayPal"}
+                  </Button>
+                  <Button kind="ghost" disabled={busy} onClick={() => confirm("Discard this plan? Nothing is held, so nothing is lost.") && act("discard")}>
+                    Discard
+                  </Button>
+                </div>
               </Card>
             ) : (
               <LiveLine w={w} working={working} stopped={state.stopped} />
@@ -291,7 +313,6 @@ export default function WatchView({ id, initial }: { id: string; initial: AppSta
 
 function LiveLine({ w, working, stopped }: { w: AppState["watches"][number]; working: boolean; stopped: boolean }) {
   let text = withTimes(w.lastNote ?? "");
-  if (w.status === "SETUP") text = w.lastNote ?? "Waiting for you to approve the PayPal hold.";
   if (stopped) text = "Stop all is on. Scout keeps still until you switch it back on.";
   return (
     <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm ring-1 ring-line">

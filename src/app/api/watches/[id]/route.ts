@@ -56,6 +56,23 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/watches/[id
     await prisma.mandate.update({ where: { id }, data: { hidden: true } });
   } else if (action === "unhide") {
     await prisma.mandate.update({ where: { id }, data: { hidden: false } });
+  } else if (action === "hold" && m.status === "SETUP") {
+    // Left PayPal before approving (cancelled, wrong login, closed the tab): pick up from the same plan.
+    if (!paypalConfigured()) return fail("PayPal isn't connected on this server yet.", 503);
+    if (m.expiresAt < new Date()) return fail("This plan's deadline has passed. Discard it and start a new watch.");
+    try {
+      return NextResponse.json({ ok: true, approveUrl: await startHold(m, publicOrigin(req)) });
+    } catch (e) {
+      return fail(e instanceof Error ? e.message : "PayPal didn't respond.", 502);
+    }
+  } else if (action === "discard" && m.status === "SETUP") {
+    // Never approved, never visited a store, nothing decided: it never became a watch, so it leaves no record.
+    const decisions = await prisma.decision.count({ where: { mandateId: id } });
+    if (decisions === 0 && !m.lastCheckedAt) {
+      await prisma.mandate.delete({ where: { id } });
+      return NextResponse.json({ ok: true, gone: true });
+    }
+    await endWatch(m, "Ended by you. Nothing is held.");
   } else if (action === "start" && m.status === "WATCHING" && m.notBefore && m.notBefore > new Date()) {
     // You changed your mind about the start time: drop it and look now.
     await prisma.mandate.update({ where: { id }, data: { notBefore: null } });
