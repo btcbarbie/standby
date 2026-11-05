@@ -80,7 +80,6 @@ export default async function WrenProduct({ params }: PageProps<"/store/wren/p/[
                 <div className="mt-2 flex flex-wrap gap-2">
                   {d.sizes.map((s) => {
                     const n = stockOf(c, s);
-                    const exists = own.some((o) => o.attrs.color === c && o.attrs.size === s);
                     return (
                       <span
                         key={s}
@@ -89,7 +88,7 @@ export default async function WrenProduct({ params }: PageProps<"/store/wren/p/[
                         }`}
                       >
                         {s}
-                        {exists && n === 0 && <span className="sr-only"> sold out</span>}
+                        <span className="sr-only">{n > 0 ? " in stock" : " sold out"}</span>
                       </span>
                     );
                   })}

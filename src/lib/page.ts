@@ -175,7 +175,8 @@ export function parseDemoPage(url: string, html: string): PageData {
     kind: ld["@type"] === "Event" ? "TICKET" : "DRESS",
     name: ld.name,
     offers,
-    text: htmlToText(html),
+    // The product data first, as on real stores: crossing out a size is only a visual style, so page text alone can't say what's in stock.
+    text: `Options listed in the page's product data (${offers.length}):\n${offers.map((o) => `- ${o.name} · ${(o.priceCents / 100).toFixed(2)} · ${o.inStock ? "in stock" : "sold out"} · seller ${o.seller} · ref ${o.ref}`).join("\n")}\n\n--- Page text ---\n${htmlToText(html)}`,
     isDemo: true,
     storeName: url.includes("/tixora/") ? "Tixora" : "Wren",
     acceptsPayPal: mentionsPayPal(html),

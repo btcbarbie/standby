@@ -16,14 +16,18 @@ import { describeLocks, meetsLocks, type Lock } from "./extract";
 //   Scout (AI shopper), the Banker (AI reviewer, never sees Scout's answer) and the Vault (rules in code).
 //   Vault says no -> blocked. Scout and Banker both yes -> bought. Both no -> skipped. Otherwise -> you decide.
 
-const busy = new Set<string>();
+// One check per watch at a time. Kept on globalThis because the background ticker and "Check now" load
+// separate copies of this file; with one list each, both could judge (and try to pay for) the same offer.
+const shared = globalThis as unknown as { standbyBusy?: Set<string> };
+const busy = (shared.standbyBusy ??= new Set<string>());
 
 export function mustHave(m: Mandate): string[] {
   return JSON.parse(m.mustHave);
 }
 
 function offerText(o: PageOffer, currency: string) {
-  return `${o.name} (ref ${o.ref}), listed at ${money(o.priceCents, currency)} by ${o.seller}`;
+  // Only in-stock offers reach this point: the code has already read that from the store's product data.
+  return `${o.name} (ref ${o.ref}), listed at ${money(o.priceCents, currency)} by ${o.seller}. The store's product data shows it in stock right now.`;
 }
 
 export async function checkMandate(mandateId: string, opts: { force?: boolean } = {}) {
